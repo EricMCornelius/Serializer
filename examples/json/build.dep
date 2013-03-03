@@ -1,0 +1,6 @@
+register({
+  id: 'JsonExample',
+  language: 'c++',
+  type: 'application',
+  deps: ['SerializerCore']
+});

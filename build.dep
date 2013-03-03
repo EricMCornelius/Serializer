@@ -1,0 +1,6 @@
+register({
+  id: 'SerializerCore',
+  language: 'c++',
+  type: 'header_only'
+});
+

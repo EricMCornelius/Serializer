@@ -1,0 +1,6 @@
+register({
+  id: 'JsonTest',
+  language: 'c++',
+  type: 'application',
+  deps: ['SerializerCore', 'gtest']
+});
