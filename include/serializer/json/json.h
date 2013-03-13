@@ -2,14 +2,18 @@
 
 #include <serializer/core.h>
 #include <iterator>
+#include <ostream>
 
 struct JsonOutStream {
-  std::ostringstream buffer;
+  JsonOutStream() : buffer(std::cout) { }
+  JsonOutStream(std::ostream& buffer_) : buffer(buffer_) { }
+
+  std::ostream& buffer;
 };
 
 template <typename T>
 JsonOutStream& operator << (JsonOutStream& out, const T& obj) {
-  std::cout << obj;
+  out.buffer << obj;
   return out;
 }
 
