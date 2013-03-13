@@ -4,3 +4,9 @@ register({
   type: 'header_only'
 });
 
+register({
+  id: 'serializer',
+  language: 'c++',
+  type: 'shared_lib'
+});
+
