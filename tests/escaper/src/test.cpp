@@ -16,7 +16,6 @@ const std::map<std::string, std::string> cases = {
 
 TEST_F(EscaperTestFixture, EscapeTest) {
   for (auto& c : cases) {
-    std::cout << escape_string(c.first) << " " << c.second << std::endl;
     ASSERT_EQ(escape_string(c.first), c.second);
   }
 }
