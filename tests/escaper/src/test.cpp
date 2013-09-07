@@ -1,21 +1,25 @@
-#include <gtest/gtest.h>
 #include <iostream>
 #include <string>
 #include <map>
+#include <cassert>
 
 #include <serializer/string_escaper.h>
+#include <uber_test.hpp>
 
-class EscaperTestFixture : public testing::Test {
+using namespace ut;
 
-};
+describe(suite)
+  const std::map<std::string, std::string> cases = {
+    { "Hello World", "Hello World" },
+    { "{\"Goodbye\":\"World\"}", "{\\\"Goodbye\\\":\\\"World\\\"}" }
+  };
 
-const std::map<std::string, std::string> cases = {
-  { "Hello World", "Hello World" },
-  { "{\"Goodbye\":\"World\"}", "{\\\"Goodbye\\\":\\\"World\\\"}" }
-};
+  it("Should verify all stored cases", [=]{
+    for (auto& c : cases)
+      assert(escape_string(c.first) == c.second);
+  });
+done(suite)
 
-TEST_F(EscaperTestFixture, EscapeTest) {
-  for (auto& c : cases) {
-    ASSERT_EQ(escape_string(c.first), c.second);
-  }
+int main(int argc, char* argv[]) {
+  suite.execute();
 }

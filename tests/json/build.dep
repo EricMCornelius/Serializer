@@ -2,5 +2,5 @@ register({
   id: 'JsonTest',
   language: 'c++',
   type: 'test',
-  deps: ['SerializerCore', 'gtest']
+  deps: ['SerializerCore', 'uber_test']
 });

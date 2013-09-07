@@ -1,12 +1,11 @@
-#include <gtest/gtest.h>
+#include <uber_test.hpp>
+#include <cassert>
 
 #include <serializer/json/impl.h>
 
 #include "resources.h"
 
-class JsonTestFixture : public testing::Test {
-
-};
+using namespace ut;
 
 bool equivalent(const JsonValue&, const JsonValue&);
 bool equivalent(const JsonObject&, const JsonObject&);
@@ -81,10 +80,11 @@ bool equivalent(const JsonValue& v1, const JsonValue& v2) {
   }
 }
 
-TEST_F(JsonTestFixture, t1) {
-  JsonInStream ssi(text);
-  JsonValue fill;
-  format(ssi, fill);
+describe(suite)
+  it("should compare parsed and constructed json objects", []{
+    JsonInStream ssi(text);
+    JsonValue fill;
+    format(ssi, fill);
 
 /*
 {
@@ -135,14 +135,19 @@ TEST_F(JsonTestFixture, t1) {
       }}
     }};
   
-  ASSERT_TRUE(equivalent(fill, v));
+  assert(equivalent(fill, v));
 
   static_cast<JsonObject&>(v)["glossary"] = 1;
-  ASSERT_FALSE(equivalent(fill, v));
+  assert(equivalent(fill, v) == false);
 
   /*
   JsonOutStream ss;
   format(ss, fill);
   std::cout << std::endl;
   */
+  });
+done(suite)
+
+int main(int argc, char* argv[]) {
+  suite.execute();
 }

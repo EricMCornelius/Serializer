@@ -1,8 +1,0 @@
-register({
-  id: 'gtest',
-  language: 'c++',
-  type: 'external',
-  libs: ['gtest_main', 'gtest'],
-  libdirs: ['/usr/lib64'],
-  includedirs: ['/usr/include']
-});
