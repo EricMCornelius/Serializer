@@ -1,2 +1,1 @@
-global.env['compiler_flags'] = ['-std=c++11', '-fconstexpr-depth=8192', '-O2'];
-global.env['compiler'] = 'clang++';
+env['compiler_flags'] = ['-std=c++11', '-fconstexpr-depth=8192', '-ftemplate-depth=8192', '-O2'];

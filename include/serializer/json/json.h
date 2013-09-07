@@ -171,7 +171,7 @@ struct formatter<U, JsonInStream> {
       if (!format(out, value))
         break;
       *itr = value_type(key, value);
-      
+
       if (!(out >> ","))
         break;
     }

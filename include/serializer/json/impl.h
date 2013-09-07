@@ -17,6 +17,16 @@ typedef double JsonNumber;
 typedef bool JsonBool;
 struct JsonNull { };
 
+
+template <>
+struct has_key<JsonValue> {
+  typedef void key_type;
+  typedef void mapped_type;
+  typedef void value_type;
+
+  const static bool value = false;
+};
+
 template <>
 struct format_override<JsonNull, JsonOutStream> {
   template <typename Stream>
@@ -77,7 +87,7 @@ struct JsonValue {
     value_type() : null(nullptr) { }
     ~value_type() { }
   } ptr;
-  
+
   enum TYPE : unsigned char {
     OBJECT,
     ARRAY,
@@ -171,7 +181,7 @@ struct JsonValue {
   }
 
   JsonValue(JsonValue&& other) {
-    *this = other; 
+    *this = other;
   }
 
   ~JsonValue() {
@@ -225,7 +235,7 @@ struct JsonValue {
     type = STRING;
     return *this;
   }
- 
+
   JsonValue& operator = (JsonNumber _val) {
     ptr.number = std::make_shared<JsonNumber>(_val);
     type = NUMBER;
