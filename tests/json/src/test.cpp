@@ -1,4 +1,6 @@
 #include <uber_test.hpp>
+#include <ostream_reporter.hpp>
+
 #include <cassert>
 #include <fstream>
 
@@ -151,5 +153,6 @@ describe(suite)
 done(suite)
 
 int main(int argc, char* argv[]) {
-  parent_suite()->execute();
+  OstreamReporter rep(std::cout);
+  Registry::get("root")->execute(rep);
 }
