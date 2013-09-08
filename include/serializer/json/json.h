@@ -18,11 +18,14 @@ JsonOutStream& operator << (JsonOutStream& out, const T& obj) {
 }
 
 struct JsonInStream {
-  std::istringstream buffer;
+  std::istringstream input_stream;
+  std::istream& buffer;
+
   operator bool() { return buffer; }
   void good() { buffer.clear(); }
 
-  JsonInStream(const std::string& contents) : buffer(contents) { }
+  JsonInStream(const std::string& contents) : input_stream(contents), buffer(input_stream) { }
+  JsonInStream(std::istream& input) : buffer(input) {}
 };
 
 template <typename T>
@@ -42,6 +45,7 @@ JsonInStream& operator >> (JsonInStream& in, std::string& obj) {
     obj += c;
     escape = (c == '\\' && !escape);
   }
+  in.buffer >> std::skipws;
   return in;
 }
 

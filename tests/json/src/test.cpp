@@ -1,5 +1,6 @@
 #include <uber_test.hpp>
 #include <cassert>
+#include <fstream>
 
 #include <serializer/json/impl.h>
 
@@ -47,12 +48,12 @@ bool equivalent(const JsonObject& v1, const JsonObject& v2) {
     for (auto& p2 : v2) {
       if (p1.first == p2.first) {
         key_match = true;
-        if (!equivalent(p1.second, p2.second)) 
+        if (!equivalent(p1.second, p2.second))
           return false;
         break;
       }
     }
-    if (!key_match) 
+    if (!key_match)
       return false;
   }
 
@@ -65,18 +66,34 @@ bool equivalent(const JsonValue& v1, const JsonValue& v2) {
 
   switch (v1.type) {
     case JsonValue::OBJECT:
-      return equivalent(static_cast<const JsonObject&>(v1), static_cast<const JsonObject&>(v2));
+      return equivalent(v1.as<JsonObject>(), v2.as<JsonObject>());
     case JsonValue::ARRAY:
-      return equivalent(static_cast<const JsonArray&>(v1), static_cast<const JsonArray&>(v2));
+      return equivalent(v1.as<JsonArray>(), v2.as<JsonArray>());
     case JsonValue::STRING:
-      return equivalent(static_cast<const JsonString&>(v1), static_cast<const JsonString&>(v2));
+      return equivalent(v1.as<JsonString>(), v2.as<JsonString>());
     case JsonValue::NUMBER:
-      return equivalent(static_cast<const JsonNumber&>(v1), static_cast<const JsonNumber&>(v2));
+      return equivalent(v1.as<JsonNumber>(), v2.as<JsonNumber>());
     case JsonValue::BOOLEAN:
-      return equivalent(static_cast<const JsonBool&>(v1), static_cast<const JsonBool&>(v2));
+      return equivalent(v1.as<JsonBool>(), v2.as<JsonBool>());
     default: {
       return true;
     }
+  }
+}
+
+// http://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
+std::string get_file_contents(const std::string& filename)
+{
+  std::ifstream in(filename.c_str(), std::ios::in | std::ios::binary);
+  if (in)
+  {
+    std::string contents;
+    in.seekg(0, std::ios::end);
+    contents.resize(in.tellg());
+    in.seekg(0, std::ios::beg);
+    in.read(&contents[0], contents.size());
+    in.close();
+    return std::move(contents);
   }
 }
 
@@ -86,65 +103,50 @@ describe(suite)
     JsonValue fill;
     format(ssi, fill);
 
-/*
-{
-  "glossary": {
-    "title": "example glossary",
-    "GlossDiv": {
-      "title": "S",
-      "GlossList": {
-        "GlossEntry": {
-          "ID": "SGML",
-          "SortAs": "SGML",
-          "GlossTerm": "Standard Generalized Markup Language",
-          "Acronym": "SGML",
-          "Abbrev": "ISO 8879:1986",
-          "GlossDef": {
-            "para": "A meta-markup language, used to create markup languages such as DocBook.",
-            "GlossSeeAlso": ["GML", "XML"]
-          },
-          "GlossSee": "markup"
-        }
-      }
-    }
-  }
-}
-*/
-
-  JsonValue v = 
-    JsonObject{
-      {"glossary", JsonObject{
+    JsonObject v = {
+      {"glossary", {
         {"title", "example glossary"},
-        {"GlossDiv", JsonObject{
+        {"GlossDiv", {
           {"title", "S"},
-          {"GlossList", JsonObject{
-            {"GlossEntry", JsonObject{
+          {"GlossList", {
+            {"GlossEntry", {
               {"ID", "SGML"},
               {"SortAs", "SGML"},
               {"GlossTerm", "Standard Generalized Markup Language"},
               {"Acronym", "SGML"},
               {"Abbrev", "ISO 8879:1986"},
               {"GlossSee", "markup"},
-              {"GlossDef", JsonObject {
+              {"GlossDef",  {
                 {"para", "A meta-markup language, used to create markup languages such as DocBook."},
-                {"GlossSeeAlso", {"GML", "XML"}}
-              }}
+                {"GlossSeeAlso", JsonArray{"GML", "XML"}}
+              }},
+              {"NullTest", nullptr}
             }
           }}
-        }} 
+        }}
       }}
     }};
-  
-  assert(equivalent(fill, v));
 
-  static_cast<JsonObject&>(v)["glossary"] = 1;
-  assert(equivalent(fill, v) == false);
+    assert(equivalent(fill.as<JsonObject>(), v));
 
-  /*
-  JsonOutStream ss;
-  format(ss, fill);
-  std::cout << std::endl;
-  */
+    v["glossary"]["title"] = 10;
+    assert(equivalent(fill.as<JsonObject>(), v) == false);
+
+    auto num = 100;
+    auto str = "sample key";
+    JsonValue s = {{str, num}};
+    std::cout << s[str] << std::endl;
+  });
+
+  it("should parse a very large json object", []{
+    for (std::size_t i = 0; i < 10; ++i) {
+      const auto& str = get_file_contents("stress.json");
+      JsonInStream ssi(str);
+      JsonValue fill;
+      format(ssi, fill);
+    }
+
+    //std::cout << fill << std::endl;
   });
 done(suite)
 

@@ -7,7 +7,10 @@
 #include <map>
 #include <unordered_map>
 #include <set>
+#include <string>
 #include <memory>
+#include <cassert>
+#include <iostream>
 
 struct JsonValue;
 typedef std::string JsonString;
@@ -16,7 +19,6 @@ typedef std::vector<JsonValue> JsonArray;
 typedef double JsonNumber;
 typedef bool JsonBool;
 struct JsonNull { };
-
 
 template <>
 struct has_key<JsonValue> {
@@ -86,7 +88,9 @@ struct JsonValue {
 
     value_type() : null(nullptr) { }
     ~value_type() { }
-  } ptr;
+  };
+
+  value_type ptr;
 
   enum TYPE : unsigned char {
     OBJECT,
@@ -97,45 +101,37 @@ struct JsonValue {
     NULL_
   } type;
 
-  operator JsonObject& () {
-    return *ptr.object;
+  template <typename Type>
+  Type& as() {
+    assert(false);
   }
 
-  operator const JsonObject& () const {
-    return *ptr.object;
+  template <typename Type>
+  const Type& as() const {
+    assert(false);
   }
 
-  operator JsonArray& () {
-    return *ptr.array;
-  }
+  template <std::size_t size>
+  JsonValue& operator [] (const char key[size]);
 
-  operator const JsonArray& () const {
-    return *ptr.array;
-  }
+  template <std::size_t size>
+  const JsonValue& operator [] (const char key[size]) const;
 
-  operator JsonString& () {
-    return *ptr.string;
-  }
+  JsonValue& operator[] (const char* key);
 
-  operator const JsonString& () const {
-    return *ptr.string;
-  }
+  const JsonValue& operator[] (const char* key) const;
 
-  operator JsonNumber& () {
-    return *ptr.number;
-  }
+  JsonValue& operator[] (const std::string& key);
 
-  operator const JsonNumber& () const {
-    return *ptr.number;
-  }
+  const JsonValue& operator [] (const std::string& key) const;
 
-  operator JsonBool& () {
-    return *ptr.boolean;
-  }
+  JsonValue& operator [] (const std::size_t idx);
 
-  operator const JsonBool& () const {
-    return *ptr.boolean;
-  }
+  const JsonValue& operator [] (const std::size_t idx) const;
+
+  JsonValue& operator [] (const int idx);
+
+  const JsonValue& operator [] (const int idx) const;
 
   JsonValue()
     : type(NULL_) { }
@@ -160,16 +156,16 @@ struct JsonValue {
     *this = b;
   }
 
+  JsonValue(std::nullptr_t val) {
+    *this = nullptr;
+  }
+
   JsonValue(JsonArray arr) {
     *this = arr;
   }
 
   JsonValue(JsonObject obj) {
     *this = obj;
-  }
-
-  JsonValue(std::initializer_list<JsonValue> arr) {
-    *this = JsonArray(arr);
   }
 
   JsonValue(std::initializer_list<std::pair<const JsonString, JsonValue>> pairs) {
@@ -255,6 +251,13 @@ struct JsonValue {
   }
 
   JsonValue& operator = (const JsonNull& _val) {
+    ptr.null = nullptr;
+    type = NULL_;
+    return *this;
+  }
+
+  JsonValue& operator = (std::nullptr_t _val) {
+    ptr.null = nullptr;
     type = NULL_;
     return *this;
   }
@@ -289,6 +292,110 @@ struct JsonValue {
   }
 };
 
+
+template <>
+JsonObject& JsonValue::as<JsonObject>() {
+  return *ptr.object;
+}
+
+template <>
+const JsonObject& JsonValue::as<JsonObject>() const {
+  return *ptr.object;
+}
+
+template <>
+JsonArray& JsonValue::as<JsonArray>() {
+  return *ptr.array;
+}
+
+template <>
+const JsonArray& JsonValue::as<JsonArray>() const {
+  return *ptr.array;
+}
+
+template <>
+JsonString& JsonValue::as<JsonString>() {
+  return *ptr.string;
+}
+
+template <>
+const JsonString& JsonValue::as<JsonString>() const {
+  return *ptr.string;
+}
+
+template <>
+JsonNumber& JsonValue::as<JsonNumber>() {
+  return *ptr.number;
+}
+
+template <>
+const JsonNumber& JsonValue::as<JsonNumber>() const {
+  return *ptr.number;
+}
+
+template <>
+JsonBool& JsonValue::as<JsonBool>() {
+  return *ptr.boolean;
+}
+
+template <>
+const JsonBool& JsonValue::as<JsonBool>() const {
+  return *ptr.boolean;
+}
+
+
+template <std::size_t size>
+JsonValue& JsonValue::operator [] (const char key[size]) {
+  return (*this)[key];
+}
+
+template <std::size_t size>
+const JsonValue& JsonValue::operator [] (const char key[size]) const {
+  return (*this)[key];
+}
+
+JsonValue& JsonValue::operator[] (const char* key) {
+  auto& obj = as<JsonObject>();
+  auto itr = obj.find(key);
+  assert(itr != obj.end());
+  return itr->second;
+}
+
+const JsonValue& JsonValue::operator[] (const char* key) const {
+  const auto& obj = as<JsonObject>();
+  auto itr = obj.find(key);
+  assert(itr != obj.end());
+  return itr->second;
+}
+
+JsonValue& JsonValue::operator[] (const std::string& key) {
+  return (*this)[key.c_str()];
+}
+
+const JsonValue& JsonValue::operator [] (const std::string& key) const {
+  return (*this)[key.c_str()];
+}
+
+JsonValue& JsonValue::operator [] (const std::size_t idx) {
+  auto& arr = as<JsonArray>();
+  assert(idx < arr.size());
+  return arr[idx];
+}
+
+const JsonValue& JsonValue::operator [] (const std::size_t idx) const {
+  const auto& arr = as<JsonArray>();
+  assert(idx < arr.size());
+  return arr[idx];
+}
+
+JsonValue& JsonValue::operator [] (const int idx) {
+  return (*this)[static_cast<std::size_t>(idx)];
+}
+
+const JsonValue& JsonValue::operator [] (const int idx) const {
+  return (*this)[static_cast<std::size_t>(idx)];
+}
+
 typedef typename JsonObject::value_type JsonPair;
 
 template <>
@@ -318,6 +425,12 @@ struct format_override<JsonValue, JsonOutStream> {
   }
 };
 
+std::ostream& operator << (std::ostream& out, const JsonValue& v) {
+  JsonOutStream ss(out);
+  format(ss, v);
+  return out;
+}
+
 template <>
 struct format_override<JsonValue, JsonInStream> {
   template <typename Stream>
@@ -337,7 +450,6 @@ struct format_override<JsonValue, JsonInStream> {
       value = n;
       return;
     }
-
 
     in.good();
     JsonBool b;

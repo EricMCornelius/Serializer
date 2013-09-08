@@ -17,7 +17,8 @@ constexpr auto text = R"(
             "para": "A meta-markup language, used to create markup languages such as DocBook.",
             "GlossSeeAlso": ["GML", "XML"]
           },
-          "GlossSee": "markup"
+          "GlossSee": "markup",
+          "NullTest": null
         }
       }
     }

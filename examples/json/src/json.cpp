@@ -136,26 +136,25 @@ void test3() {
 }
 
 void test4() {
-	constexpr auto text = R"(
-		{
-		  "data": [1, 2, 3],
-		  "children": [
-		  	{
-		  		"data": [4, 5, 6]
-		  	},
-		  	{
-		  		"data": [7, 8, 9]
-		  	},
-		  	{
-		  		"children": [
-		  			{
-		  				"data": [10, 11]
-		  			}
-		  		]
-		  	}
-		  ]
-    }
-  )";
+	constexpr auto text = R"({
+    "data": [1, 2, 3],
+    "children": [
+    	{
+    		"data": [4, 5, 6]
+    	},
+    	{
+    		"data": [7, 8, 9]
+    	},
+    	{
+    		"children": [
+    			{
+    				"data": [10, 11]
+    			}
+    		]
+    	}
+    ]
+  })";
+
 	JsonInStream ssi(text);
 	recursive fill;
 	format(ssi, fill);
@@ -179,14 +178,14 @@ void test5() {
 void test6() {
   JsonObject obj;
   obj["Hello"] = 0;
-  JsonArray arr = {1, "hi", "bye", true, false, {"hello", "world", 1, 2, 3}};
+  JsonArray arr = {1, "hi", "bye", true, false, JsonArray{"hello", "world", 1, 2, 3}};
   JsonObject obj2 = {{"Hello", 1}, {"Goodbye", 2}, {"Test", JsonObject{{"?", 2}}}};
   JsonValue val = JsonObject{{"Hello", "World"}};
   obj["Children"] = arr;
   obj["Sub-obj"] = obj2;
   obj["test"] = obj["Children"];
-  static_cast<JsonArray&>(obj["test"])[0] = 2;
-  static_cast<JsonObject&>(obj["Sub-obj"])["Hello"] = 2;
+  obj["test"][0] = 2;
+  obj["Sub-obj"]["Hello"] = 2;
 
   // bind goodbye property to hello
   obj["Goodbye"] = obj["Hello"];
@@ -199,29 +198,28 @@ void test6() {
 }
 
 void test7() {
-  constexpr auto text = R"(
-{
+  constexpr auto text = R"({
     "glossary": {
-        "title": "example glossary",
-		"GlossDiv": {
-            "title": "S",
-			"GlossList": {
-                "GlossEntry": {
-                    "ID": "SGML",
-					"SortAs": "SGML",
-					"GlossTerm": "Standard Generalized Markup Language",
-					"Acronym": "SGML",
-					"Abbrev": "ISO 8879:1986",
-					"GlossDef": {
-                        "para": "A meta-markup language, used to create markup languages such as DocBook.",
-						"GlossSeeAlso": ["GML", "XML"]
-                    },
-					"GlossSee": "markup"
-                }
-            }
+      "title": "example glossary",
+  	  "GlossDiv": {
+        "title": "S",
+  	   	"GlossList": {
+          "GlossEntry": {
+           "ID": "SGML",
+  		  		"SortAs": "SGML",
+  		  		"GlossTerm": "Standard Generalized Markup Language",
+  		  		"Acronym": "SGML",
+  		  		"Abbrev": "ISO 8879:1986",
+  		  		"GlossDef": {
+             "para": "A meta-markup language, used to create markup languages such as DocBook.",
+  		  			"GlossSeeAlso": ["GML", "XML"]
+           },
+  		  		"GlossSee": "markup"
+         }
         }
+      }
     }
-})";
+  })";
 
   JsonInStream ssi(text);
   JsonObject fill;

@@ -17,3 +17,6 @@
 
 # Posh files
 .posh
+
+# Directories
+data
