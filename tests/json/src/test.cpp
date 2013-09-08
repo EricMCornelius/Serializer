@@ -151,5 +151,5 @@ describe(suite)
 done(suite)
 
 int main(int argc, char* argv[]) {
-  suite.execute();
+  parent_suite()->execute();
 }
