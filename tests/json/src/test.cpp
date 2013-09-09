@@ -10,79 +10,6 @@
 
 using namespace ut;
 
-bool equivalent(const JsonValue&, const JsonValue&);
-bool equivalent(const JsonObject&, const JsonObject&);
-bool equivalent(const JsonArray&, const JsonArray&);
-bool equivalent(const JsonString&, const JsonString&);
-bool equivalent(const JsonNumber&, const JsonNumber&);
-bool equivalent(const JsonBool&, const JsonBool&);
-
-bool equivalent(const JsonString& v1, const JsonString& v2) {
-  return v1 == v2;
-}
-
-bool equivalent(const JsonNumber& v1, const JsonNumber& v2) {
-  return v1 == v2;
-}
-
-bool equivalent(const JsonBool& v1, const JsonBool& v2) {
-  return v1 == v2;
-}
-
-bool equivalent(const JsonArray& v1, const JsonArray& v2) {
-  if (v1.size() != v2.size())
-    return false;
-
-  for (std::size_t i = 0; i < v1.size(); ++i) {
-    if (!equivalent(v1[i], v2[i]))
-      return false;
-  }
-
-  return true;
-}
-
-bool equivalent(const JsonObject& v1, const JsonObject& v2) {
-  if (v1.size() != v2.size())
-    return false;
-
-  for (auto& p1 : v1) {
-    bool key_match = false;
-    for (auto& p2 : v2) {
-      if (p1.first == p2.first) {
-        key_match = true;
-        if (!equivalent(p1.second, p2.second))
-          return false;
-        break;
-      }
-    }
-    if (!key_match)
-      return false;
-  }
-
-  return true;
-}
-
-bool equivalent(const JsonValue& v1, const JsonValue& v2) {
-  if (v1.type != v2.type)
-    return false;
-
-  switch (v1.type) {
-    case JsonValue::OBJECT:
-      return equivalent(v1.as<JsonObject>(), v2.as<JsonObject>());
-    case JsonValue::ARRAY:
-      return equivalent(v1.as<JsonArray>(), v2.as<JsonArray>());
-    case JsonValue::STRING:
-      return equivalent(v1.as<JsonString>(), v2.as<JsonString>());
-    case JsonValue::NUMBER:
-      return equivalent(v1.as<JsonNumber>(), v2.as<JsonNumber>());
-    case JsonValue::BOOLEAN:
-      return equivalent(v1.as<JsonBool>(), v2.as<JsonBool>());
-    default: {
-      return true;
-    }
-  }
-}
-
 // http://stackoverflow.com/questions/2602013/read-whole-ascii-file-into-c-stdstring
 std::string get_file_contents(const std::string& filename)
 {
@@ -133,13 +60,109 @@ describe(suite)
 
     v["glossary"]["title"] = 10;
     assert(equivalent(fill.as<JsonObject>(), v) == false);
+  });
 
+  it("should create a new object", [] {
     auto num = 100;
     auto str = "sample key";
     JsonValue s = {{str, num}};
-    std::cout << s[str] << std::endl;
+    std::cout << s << std::endl;
   });
 
+  it("should create a new array", [] {
+    auto num = 100;
+    auto str = "sample key";
+    JsonArray s = {str, num};
+    std::cout << s << std::endl;
+  });
+
+  it("should create a new object and assign an array to the data field", [] {
+    JsonObject obj = {
+      {"Hello", "World"}
+    };
+    obj["data"] = JsonArray{1, 2, 3};
+    std::cout << obj << std::endl;
+  });
+
+  it("should throw an exception due to invalid object field access", [] {
+    const JsonValue obj = {
+      {"Hello", "World"}
+    };
+
+    std::cout << obj["invalid"] << std::endl;
+  });
+
+  it("should throw an exception due to invalid array access", [] {
+    const JsonValue obj = {
+      {"data", JsonArray{"Hello", "World"}}
+    };
+
+    std::cout << obj["data"][2] << std::endl;
+  });
+
+  it("should demonstrate value reference semantics", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    JsonValue v2 = v;
+    v2["test"] = "hi";
+
+    std::cout << v << " " << v2 << std::endl;
+  });
+
+  it("should clone a value", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    JsonValue v2 = v.clone();
+    v2["test"] = "hi";
+
+    std::cout << v << " " << v2 << std::endl;
+  });
+
+  it("should clone a const value", [] {
+    const JsonValue v = {
+      {"Hello", "World"}
+    };
+    JsonValue v2 = v.clone();
+    v2["test"] = "hi";
+
+    std::cout << v << " " << v2 << std::endl;
+  });
+
+  it("should fail to coerce a number field to a string", [] {
+    JsonValue v = {
+      {"test", 0}
+    };
+
+    auto field = v["test"].as<JsonString>();
+  });
+
+  it("should fail to coerce a string field to a number", [] {
+    JsonValue v = {
+      {"test", "0"}
+    };
+
+    auto field = v["test"].as<JsonNumber>();
+  });
+
+  it("should fail to coerce an object field to an array", [] {
+    JsonValue v = {
+      {"nested", {{"test", "0"}}}
+    };
+
+    auto field = v["nested"].as<JsonArray>();
+  });
+
+  it("should fail to coerce an array field to an object", [] {
+    JsonValue v = {
+      {"nested", JsonArray{"test", "0"}}
+    };
+
+    auto field = v["nested"].as<JsonObject>();
+  });
+
+  /*
   it("should parse a very large json object", []{
     for (std::size_t i = 0; i < 10; ++i) {
       const auto& str = get_file_contents("stress.json");
@@ -150,6 +173,7 @@ describe(suite)
 
     //std::cout << fill << std::endl;
   });
+  */
 done(suite)
 
 int main(int argc, char* argv[]) {

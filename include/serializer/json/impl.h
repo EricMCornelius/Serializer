@@ -9,7 +9,8 @@
 #include <set>
 #include <string>
 #include <memory>
-#include <cassert>
+#include <stdexcept>
+#include <sstream>
 #include <iostream>
 
 struct JsonValue;
@@ -77,6 +78,36 @@ struct format_override<JsonBool, JsonInStream> {
   }
 };
 
+void concat_impl(std::ostream& out) {
+
+}
+
+template <typename Head, typename... Args>
+void concat_impl(std::ostream& out, const Head& h, const Args&... args) {
+  out << h;
+  concat_impl(out, args...);
+}
+
+template <typename... Args>
+std::string concat(const Args&... args) {
+  std::stringstream str;
+  concat_impl(str, args...);
+  return str.str();
+}
+
+struct ExceptionBase : public std::runtime_error {
+  template <typename... Args>
+  ExceptionBase(const Args&... args) : std::runtime_error(concat(args...)) {}
+};
+
+struct AccessException : public ExceptionBase {
+  using ExceptionBase::ExceptionBase;
+};
+
+struct TypeException : public ExceptionBase {
+  using ExceptionBase::ExceptionBase;
+};
+
 struct JsonValue {
   union value_type {
     std::shared_ptr<JsonNull> null;
@@ -92,24 +123,25 @@ struct JsonValue {
 
   value_type ptr;
 
-  enum TYPE : unsigned char {
-    OBJECT,
-    ARRAY,
-    STRING,
-    NUMBER,
-    BOOLEAN,
-    NULL_
-  } type;
+  enum class Type : unsigned char {
+    Object,
+    Array,
+    String,
+    Number,
+    Boolean,
+    Null
+  };
+
+  Type type = Type::Null;
 
   template <typename Type>
-  Type& as() {
-    assert(false);
-  }
+  Type& as();
 
   template <typename Type>
-  const Type& as() const {
-    assert(false);
-  }
+  const Type& as() const;
+
+  template <typename Type>
+  bool is() const;
 
   template <std::size_t size>
   JsonValue& operator [] (const char key[size]);
@@ -134,7 +166,7 @@ struct JsonValue {
   const JsonValue& operator [] (const int idx) const;
 
   JsonValue()
-    : type(NULL_) { }
+    : type(Type::Null) { }
 
   JsonValue(int i) {
     *this = static_cast<double>(i);
@@ -145,6 +177,10 @@ struct JsonValue {
   }
 
   JsonValue(std::string&& str) {
+    *this = str;
+  }
+
+  JsonValue(const std::string& str) {
     *this = str;
   }
 
@@ -184,81 +220,107 @@ struct JsonValue {
     cleanup();
   }
 
+  const JsonValue clone() const {
+    switch (type) {
+      case Type::Object:
+        return *ptr.object;
+        break;
+      case Type::Array:
+        return *ptr.array;
+        break;
+      case Type::String:
+        return *ptr.string;
+        break;
+      case Type::Number:
+        return *ptr.number;
+        break;
+      case Type::Boolean:
+        return *ptr.boolean;
+        break;
+      default: {
+
+      }
+    }
+    return nullptr;
+  }
+
   void cleanup() {
     switch (type) {
-      case OBJECT:
+      case Type::Object:
         ptr.object = nullptr;
         break;
-      case ARRAY:
+      case Type::Array:
         ptr.array = nullptr;
         break;
-      case STRING:
+      case Type::String:
         ptr.string = nullptr;
         break;
-      case NUMBER:
+      case Type::Number:
         ptr.number = nullptr;
         break;
-      case BOOLEAN:
+      case Type::Boolean:
         ptr.boolean = nullptr;
         break;
       default: {
 
       }
     }
-    type = NULL_;
+    type = Type::Null;
   }
+
+  bool operator == (const JsonValue& other) const;
 
   JsonValue& operator = (JsonObject _val) {
     ptr.object = std::make_shared<JsonObject>(_val);
-    type = OBJECT;
+    type = Type::Object;
     return *this;
   }
 
   JsonValue& operator = (JsonArray _val) {
     ptr.array = std::make_shared<JsonArray>(_val);
-    type = ARRAY;
+    type = Type::Array;
     return *this;
   }
 
   JsonValue& operator = (JsonString _val) {
     ptr.string = std::make_shared<JsonString>(_val);
-    type = STRING;
+    type = Type::String;
     return *this;
   }
 
   JsonValue& operator = (const char* _str) {
     ptr.string = std::make_shared<JsonString>(_str);
-    type = STRING;
+    type = Type::String;
     return *this;
   }
 
   JsonValue& operator = (JsonNumber _val) {
     ptr.number = std::make_shared<JsonNumber>(_val);
-    type = NUMBER;
+    type = Type::Number;
     return *this;
   }
 
   JsonValue& operator = (int _val) {
     ptr.number = std::make_shared<JsonNumber>(_val);
-    type = NUMBER;
+    type = Type::Number;
     return *this;
   }
 
   JsonValue& operator = (JsonBool _val) {
     ptr.boolean = std::make_shared<JsonBool>(_val);
-    type = BOOLEAN;
+    type = Type::Boolean;
     return *this;
   }
 
   JsonValue& operator = (const JsonNull& _val) {
     ptr.null = nullptr;
-    type = NULL_;
+    type = Type::Null;
     return *this;
   }
 
   JsonValue& operator = (std::nullptr_t _val) {
     ptr.null = nullptr;
-    type = NULL_;
+    type = Type::Null;
     return *this;
   }
 
@@ -269,19 +331,19 @@ struct JsonValue {
     cleanup();
     type = _val.type;
     switch (_val.type) {
-      case OBJECT:
+      case Type::Object:
         ptr.object = _val.ptr.object;
         break;
-      case ARRAY:
+      case Type::Array:
         ptr.array = _val.ptr.array;
         break;
-      case STRING:
+      case Type::String:
         ptr.string = _val.ptr.string;
         break;
-      case NUMBER:
+      case Type::Number:
         ptr.number = _val.ptr.number;
         break;
-      case BOOLEAN:
+      case Type::Boolean:
         ptr.boolean = _val.ptr.boolean;
         break;
       default: {
@@ -292,99 +354,158 @@ struct JsonValue {
   }
 };
 
+template <>
+bool JsonValue::is<JsonObject>() const {
+  return type == Type::Object;
+}
+
+template <>
+bool JsonValue::is<JsonArray>() const {
+  return type == Type::Array;
+}
+
+template <>
+bool JsonValue::is<JsonString>() const {
+  return type == Type::String;
+}
+
+template <>
+bool JsonValue::is<JsonNumber>() const {
+  return type == Type::Number;
+}
+
+template <>
+bool JsonValue::is<JsonBool>() const {
+  return type == Type::Boolean;
+}
+
+template <>
+bool JsonValue::is<JsonNull>() const {
+  return type == Type::Null;
+}
 
 template <>
 JsonObject& JsonValue::as<JsonObject>() {
+  if (!is<JsonObject>())
+    throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
 const JsonObject& JsonValue::as<JsonObject>() const {
+  if (!is<JsonObject>())
+    throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
 JsonArray& JsonValue::as<JsonArray>() {
+  if (!is<JsonArray>())
+    throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
 const JsonArray& JsonValue::as<JsonArray>() const {
+  if (!is<JsonArray>())
+    throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
 JsonString& JsonValue::as<JsonString>() {
+  if (!is<JsonString>())
+    throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
 const JsonString& JsonValue::as<JsonString>() const {
+  if (!is<JsonString>())
+    throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
 JsonNumber& JsonValue::as<JsonNumber>() {
+  if (!is<JsonNumber>())
+    throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
 const JsonNumber& JsonValue::as<JsonNumber>() const {
+  if (!is<JsonNumber>())
+    throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
 JsonBool& JsonValue::as<JsonBool>() {
+  if (!is<JsonBool>())
+    throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
 const JsonBool& JsonValue::as<JsonBool>() const {
+  if (!is<JsonBool>())
+    throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
-
 template <std::size_t size>
 JsonValue& JsonValue::operator [] (const char key[size]) {
-  return (*this)[key];
+  auto& obj = as<JsonObject>();
+  return obj[key];
 }
 
 template <std::size_t size>
 const JsonValue& JsonValue::operator [] (const char key[size]) const {
-  return (*this)[key];
+  const auto& obj = as<JsonObject>();
+  auto itr = obj.find(key);
+  if (itr == obj.end())
+    throw AccessException("Invalid Key: ", key);
+  return itr->second;
 }
 
 JsonValue& JsonValue::operator[] (const char* key) {
   auto& obj = as<JsonObject>();
-  auto itr = obj.find(key);
-  assert(itr != obj.end());
-  return itr->second;
+  return obj[key];
 }
 
 const JsonValue& JsonValue::operator[] (const char* key) const {
   const auto& obj = as<JsonObject>();
   auto itr = obj.find(key);
-  assert(itr != obj.end());
+  if (itr == obj.end())
+    throw AccessException("Invalid Key: ", key);
   return itr->second;
 }
 
 JsonValue& JsonValue::operator[] (const std::string& key) {
-  return (*this)[key.c_str()];
+  auto& obj = as<JsonObject>();
+  return obj[key];
 }
 
 const JsonValue& JsonValue::operator [] (const std::string& key) const {
-  return (*this)[key.c_str()];
+  const auto& obj = as<JsonObject>();
+  auto itr = obj.find(key);
+  if (itr == obj.end())
+    throw AccessException("Invalid Key: ", key);
+  return itr->second;
 }
 
 JsonValue& JsonValue::operator [] (const std::size_t idx) {
   auto& arr = as<JsonArray>();
-  assert(idx < arr.size());
+  if (idx >= arr.size())
+    throw AccessException("Invalid Index: ", idx);
   return arr[idx];
 }
 
 const JsonValue& JsonValue::operator [] (const std::size_t idx) const {
   const auto& arr = as<JsonArray>();
-  assert(idx < arr.size());
+  if (idx >= arr.size())
+    throw AccessException("Invalid Index: ", idx);
   return arr[idx];
 }
 
@@ -396,29 +517,110 @@ const JsonValue& JsonValue::operator [] (const int idx) const {
   return (*this)[static_cast<std::size_t>(idx)];
 }
 
+bool equivalent(const JsonValue&, const JsonValue&);
+bool equivalent(const JsonObject&, const JsonObject&);
+bool equivalent(const JsonArray&, const JsonArray&);
+bool equivalent(const JsonString&, const JsonString&);
+bool equivalent(const JsonNumber&, const JsonNumber&);
+bool equivalent(const JsonBool&, const JsonBool&);
+
+bool equivalent(const JsonString& v1, const JsonString& v2) {
+  return v1 == v2;
+}
+
+bool equivalent(const JsonNumber& v1, const JsonNumber& v2) {
+  return v1 == v2;
+}
+
+bool equivalent(const JsonBool& v1, const JsonBool& v2) {
+  return v1 == v2;
+}
+
+bool equivalent(const JsonArray& v1, const JsonArray& v2) {
+  if (v1.size() != v2.size())
+    return false;
+
+  for (std::size_t i = 0; i < v1.size(); ++i) {
+    if (!equivalent(v1[i], v2[i]))
+      return false;
+  }
+
+  return true;
+}
+
+// TODO: improve efficiency here - currently O(n^2) for dictionary comparisons
+bool equivalent(const JsonObject& v1, const JsonObject& v2) {
+  if (v1.size() != v2.size())
+    return false;
+
+  for (const auto& p1 : v1) {
+    bool key_match = false;
+    for (const auto& p2 : v2) {
+      if (p1.first == p2.first) {
+        key_match = true;
+        if (!equivalent(p1.second, p2.second))
+          return false;
+        break;
+      }
+    }
+    if (!key_match)
+      return false;
+  }
+
+  return true;
+}
+
+bool equivalent(const JsonValue& v1, const JsonValue& v2) {
+  if (v1.type != v2.type)
+    return false;
+
+  switch (v1.type) {
+    case JsonValue::Type::Object:
+      return equivalent(v1.as<JsonObject>(), v2.as<JsonObject>());
+    case JsonValue::Type::Array:
+      return equivalent(v1.as<JsonArray>(), v2.as<JsonArray>());
+    case JsonValue::Type::String:
+      return equivalent(v1.as<JsonString>(), v2.as<JsonString>());
+    case JsonValue::Type::Number:
+      return equivalent(v1.as<JsonNumber>(), v2.as<JsonNumber>());
+    case JsonValue::Type::Boolean:
+      return equivalent(v1.as<JsonBool>(), v2.as<JsonBool>());
+    default: {
+      return true;
+    }
+  }
+}
+
+bool JsonValue::operator == (const JsonValue& other) const {
+  return equivalent(*this, other);
+};
+
 typedef typename JsonObject::value_type JsonPair;
+
+
+
 
 template <>
 struct format_override<JsonValue, JsonOutStream> {
   template <typename Stream>
   static void format(Stream& out, const JsonValue& value) {
     switch(value.type) {
-      case JsonValue::OBJECT:
+      case JsonValue::Type::Object:
         ::format(out, *value.ptr.object);
         break;
-      case JsonValue::ARRAY:
+      case JsonValue::Type::Array:
         ::format(out, *value.ptr.array);
         break;
-      case JsonValue::STRING:
+      case JsonValue::Type::String:
         ::format(out, *value.ptr.string);
         break;
-      case JsonValue::NUMBER:
+      case JsonValue::Type::Number:
         ::format(out, *value.ptr.number);
         break;
-      case JsonValue::BOOLEAN:
+      case JsonValue::Type::Boolean:
         ::format(out, *value.ptr.boolean);
         break;
-      case JsonValue::NULL_:
+      case JsonValue::Type::Null:
         ::format(out, JsonNull());
         break;
     }
