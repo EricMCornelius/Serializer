@@ -56,10 +56,10 @@ describe(suite)
       }}
     }};
 
-    assert(equivalent(fill.as<JsonObject>(), v));
+    equivalent(fill.as<JsonObject>(), v);
 
     v["glossary"]["title"] = 10;
-    assert(equivalent(fill.as<JsonObject>(), v) == false);
+    equivalent(fill.as<JsonObject>(), v) == false;
   });
 
   it("should create a new object", [] {
@@ -161,6 +161,84 @@ describe(suite)
 
     auto field = v["nested"].as<JsonObject>();
   });
+
+  it("should return a defaulted string value", [] {
+    JsonValue v = {
+      {"Hello", "World"},
+      {"Data", JsonArray{"This","Is","A","Test"}}
+    };
+
+    std::cout << v.get("hello").defaultTo("Test") << " " << v.get("Data", 0).defaultTo("this") << std::endl;
+  });
+
+  it("should return a defaulted int value", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+
+    std::cout << v.get("hello").defaultTo(1) << std::endl;
+  });
+
+  it("should return a defaulted object value", [] {
+    JsonValue v = {
+      {"test", {{"Hello", "World"}}}
+    };
+
+    JsonObject t = {
+      {"default", "implementation"}
+    };
+
+    std::cout << v.get("missing").defaultTo(t) << " " << v.get("test").defaultTo(t) << std::endl;
+  });
+
+  it("should create not create nested object via lookup", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    v["first"]["second"];
+
+    std::cout << v << std::endl;
+  });
+
+  it("should create a nested object via assignment", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    v["first"]["second"] = {{"Hello", "World"}};
+
+    std::cout << v << std::endl;
+  });
+
+  it("should create a nested array via assignment", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    v["first"]["second"][2] = {{"Hello", "World"}};
+
+    std::cout << v << std::endl;
+  });
+
+  it("should default to 1", [] {
+    JsonValue v = {
+      {"Hello", "World"}
+    };
+    std::cout << v["Hello"]["test"].defaultTo(1) << std::endl;
+  });
+
+  it("should successful retrieve a JsonString field", [] {
+    JsonValue v = {
+      {"example", {{"test", "message"}}}
+    };
+    std::cout << v["example"]["test"].as<JsonString>() << std::endl;
+  });
+
+  it("should fail to retrieve a JsonString field", [] {
+    JsonValue v = {
+      {"example", {{"test", 1}}}
+    };
+    std::cout << v["example"]["test"].as<JsonString>() << std::endl;
+  });
+
 
   /*
   it("should parse a very large json object", []{

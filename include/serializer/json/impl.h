@@ -108,6 +108,9 @@ struct TypeException : public ExceptionBase {
   using ExceptionBase::ExceptionBase;
 };
 
+struct QueryResult;
+struct SetterResult;
+
 struct JsonValue {
   union value_type {
     std::shared_ptr<JsonNull> null;
@@ -143,17 +146,53 @@ struct JsonValue {
   template <typename Type>
   bool is() const;
 
+  bool has(const std::string& key) const {
+    return (type == Type::Object && ptr.object->find(key) != ptr.object->end());
+  }
+
+  bool has(const char* key) const {
+    return has(std::string(key));
+  }
+
+  bool has(std::size_t idx) const {
+    return (type == Type::Array && idx < ptr.array->size());
+  }
+
+  JsonValue& lookup(const std::string& key) {
+    return ptr.object->operator[](key);
+  }
+
+  JsonValue& lookup(std::size_t idx) {
+    return ptr.array->operator[](idx);
+  }
+
+  template <typename Value>
+  void set(const std::string& key, const Value& v) {
+    ptr.object->operator[](key) = v;
+  }
+
+  template <typename Value>
+  void set(std::size_t idx, const Value& v) {
+    ptr.array->operator[](idx) = v;
+  }
+
+  template <typename Key>
+  QueryResult get(const Key& key);
+
+  template <typename Key, typename... Args>
+  QueryResult get(const Key& key, const Args&... args);
+
   template <std::size_t size>
-  JsonValue& operator [] (const char key[size]);
+  SetterResult operator [] (const char key[size]);
 
   template <std::size_t size>
   const JsonValue& operator [] (const char key[size]) const;
 
-  JsonValue& operator[] (const char* key);
+  SetterResult operator [] (const char* key);
 
-  const JsonValue& operator[] (const char* key) const;
+  const JsonValue& operator [] (const char* key) const;
 
-  JsonValue& operator[] (const std::string& key);
+  SetterResult operator [] (const std::string& key);
 
   const JsonValue& operator [] (const std::string& key) const;
 
@@ -454,10 +493,135 @@ const JsonBool& JsonValue::as<JsonBool>() const {
   return *ptr.boolean;
 }
 
+// TODO: should make this a union type
+struct Key {
+  Key(const std::string& str_)
+    : str(str_), isString(true) {}
+  Key(int idx_)
+    : idx(idx_), isString(false) {}
+
+  std::string str;
+  int idx = 0;
+  bool isString = false;
+};
+
+struct QueryResult {
+  QueryResult() {}
+
+  QueryResult(JsonValue* value)
+    : _value(value) {}
+
+  template <typename Default>
+  Default defaultTo(const Default& d) {
+    if (!_value)
+      return d;
+
+    if (_value->is<Default>())
+      return _value->as<Default>();
+    return d;
+  }
+
+  JsonString defaultTo(const char* d) {
+    if (_value && _value->is<JsonString>())
+      return _value->as<JsonString>();
+    return d;
+  }
+
+  JsonNumber defaultTo(int d) {
+    if (_value && _value->is<JsonNumber>())
+      return _value->as<JsonNumber>();
+    return d;
+  }
+
+  bool isNull() {
+    return _value == nullptr;
+  }
+
+  JsonValue* _value = nullptr;
+};
+
+struct SetterResult {
+  SetterResult(const std::string& key, JsonValue& value)
+    : _value(value)
+    {
+      _keys.emplace_back(key);
+    }
+
+  JsonValue& operator = (const JsonValue& set) {
+    JsonValue* root = &_value;
+    for (const auto& key : _keys) {
+      if (key.isString) {
+        if (!root->is<JsonObject>())
+          *root = JsonObject();
+        root = &root->lookup(key.str);
+      }
+      else {
+        if (!root->is<JsonArray>())
+          *root = JsonArray();
+        auto& arr = root->as<JsonArray>();
+        if (key.idx >= arr.size())
+          arr.resize(key.idx + 1);
+        root = &root->lookup(key.idx);
+      }
+    }
+    *root = set;
+
+    return _value;
+  }
+
+  SetterResult& operator[](const char* key) {
+    _keys.emplace_back(key);
+    return *this;
+  }
+
+  SetterResult& operator[](int idx) {
+    _keys.emplace_back(idx);
+    return *this;
+  }
+
+  template <typename Default>
+  auto defaultTo(const Default& d) -> decltype(QueryResult().defaultTo(d)) {
+    JsonValue* root = &_value;
+    for (auto& key : _keys) {
+      if (key.isString) {
+        if (!root->has(key.str))
+          return QueryResult().defaultTo(d);
+        root = &root->lookup(key.str);
+      }
+      else {
+        if (!root->has(key.idx))
+          return QueryResult().defaultTo(d);
+        root = &root->lookup(key.idx);
+      }
+    }
+    return QueryResult(root).defaultTo(d);
+  }
+
+  template <typename Type>
+  Type& as() {
+    JsonValue* root = &_value;
+    for (auto& key : _keys) {
+      if (key.isString) {
+        if (!root->has(key.str))
+          throw AccessException("Invalid Key: ", key.str);
+        root = &root->lookup(key.str);
+      }
+      else {
+        if (!root->has(key.idx))
+          throw AccessException("Invalid Index: ", key.idx);
+        root = &root->lookup(key.idx);
+      }
+    }
+    return root->as<Type>();
+  }
+
+  std::list<Key> _keys;
+  JsonValue& _value;
+};
+
 template <std::size_t size>
-JsonValue& JsonValue::operator [] (const char key[size]) {
-  auto& obj = as<JsonObject>();
-  return obj[key];
+SetterResult JsonValue::operator [] (const char key[size]) {
+  return SetterResult(key, *this);
 }
 
 template <std::size_t size>
@@ -469,12 +633,11 @@ const JsonValue& JsonValue::operator [] (const char key[size]) const {
   return itr->second;
 }
 
-JsonValue& JsonValue::operator[] (const char* key) {
-  auto& obj = as<JsonObject>();
-  return obj[key];
+SetterResult JsonValue::operator [] (const char* key) {
+  return SetterResult(key, *this);
 }
 
-const JsonValue& JsonValue::operator[] (const char* key) const {
+const JsonValue& JsonValue::operator [] (const char* key) const {
   const auto& obj = as<JsonObject>();
   auto itr = obj.find(key);
   if (itr == obj.end())
@@ -482,9 +645,8 @@ const JsonValue& JsonValue::operator[] (const char* key) const {
   return itr->second;
 }
 
-JsonValue& JsonValue::operator[] (const std::string& key) {
-  auto& obj = as<JsonObject>();
-  return obj[key];
+SetterResult JsonValue::operator [] (const std::string& key) {
+  return SetterResult(key, *this);
 }
 
 const JsonValue& JsonValue::operator [] (const std::string& key) const {
@@ -507,6 +669,20 @@ const JsonValue& JsonValue::operator [] (const std::size_t idx) const {
   if (idx >= arr.size())
     throw AccessException("Invalid Index: ", idx);
   return arr[idx];
+}
+
+template <typename Key>
+QueryResult JsonValue::get(const Key& key) {
+  if (has(key))
+    return QueryResult(&lookup(key));
+  return QueryResult();
+}
+
+template <typename Key, typename... Args>
+QueryResult JsonValue::get(const Key& key, const Args&... args) {
+  if (has(key))
+    return lookup(key).get(args...);
+  return QueryResult();
 }
 
 JsonValue& JsonValue::operator [] (const int idx) {
@@ -596,8 +772,6 @@ bool JsonValue::operator == (const JsonValue& other) const {
 };
 
 typedef typename JsonObject::value_type JsonPair;
-
-
 
 
 template <>
