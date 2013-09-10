@@ -1,2 +1,3 @@
-env['compiler_flags'] = ['-std=c++11', '-fconstexpr-depth=8192', '-ftemplate-depth=8192', '-O2'];
+env['compiler_flags'] = ['-std=c++11', '-fconstexpr-depth=8192', '-ftemplate-depth=8192', '-O2', '-g'];
+env['linker_flags'] = ['-rdynamic'];
 env['compiler'] = 'g++-4.8';

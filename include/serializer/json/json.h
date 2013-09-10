@@ -4,37 +4,39 @@
 #include <iterator>
 #include <ostream>
 
-struct JsonOutStream {
-  JsonOutStream() : buffer(std::cout) { }
-  JsonOutStream(std::ostream& buffer_) : buffer(buffer_) { }
+namespace json {
+
+struct OutStream {
+  OutStream() : buffer(std::cout) { }
+  OutStream(std::ostream& buffer_) : buffer(buffer_) { }
 
   std::ostream& buffer;
 };
 
 template <typename T>
-JsonOutStream& operator << (JsonOutStream& out, const T& obj) {
+OutStream& operator << (OutStream& out, const T& obj) {
   out.buffer << obj;
   return out;
 }
 
-struct JsonInStream {
+struct InStream {
   std::istringstream input_stream;
   std::istream& buffer;
 
   operator bool() { return buffer; }
   void good() { buffer.clear(); }
 
-  JsonInStream(const std::string& contents) : input_stream(contents), buffer(input_stream) { }
-  JsonInStream(std::istream& input) : buffer(input) {}
+  InStream(const std::string& contents) : input_stream(contents), buffer(input_stream) { }
+  InStream(std::istream& input) : buffer(input) {}
 };
 
 template <typename T>
-JsonInStream& operator >> (JsonInStream& in, T& obj) {
+InStream& operator >> (InStream& in, T& obj) {
   in.buffer >> obj;
   return in;
 }
 
-JsonInStream& operator >> (JsonInStream& in, std::string& obj) {
+InStream& operator >> (InStream& in, std::string& obj) {
   char c;
   bool escape = false;
   while(in.buffer >> std::noskipws >> c) {
@@ -49,7 +51,7 @@ JsonInStream& operator >> (JsonInStream& in, std::string& obj) {
   return in;
 }
 
-JsonInStream& operator >> (JsonInStream& in, const char* str) {
+InStream& operator >> (InStream& in, const char* str) {
   std::size_t len = std::strlen(str);
   std::size_t count = 0;
   char c;
@@ -72,9 +74,10 @@ JsonInStream& operator >> (JsonInStream& in, const char* str) {
   return in;
 }
 
+}
 
 template <typename U>
-struct formatter<U, JsonOutStream> {
+struct formatter<U, json::OutStream> {
   template <typename T, typename Stream>
   static auto format_impl(Stream& out, const T& t) -> typename std::enable_if<has_range<T>::value && not has_key<T>::value>::type {
     const char* sep = "";
@@ -130,7 +133,7 @@ struct formatter<U, JsonOutStream> {
 };
 
 template <typename U>
-struct formatter<U, JsonInStream> {
+struct formatter<U, json::InStream> {
   template <typename T, typename Stream>
   static auto format_impl(Stream& out, T& t) -> typename std::enable_if<has_range<T>::value && not has_key<T>::value, bool>::type {
     typedef typename has_range<T>::value_type value_type;
@@ -232,7 +235,7 @@ struct formatter<U, JsonInStream> {
 };
 
 template <>
-struct format_override<std::string, JsonOutStream> {
+struct format_override<std::string, json::OutStream> {
   template <typename Stream>
   static void format(Stream& out, const std::string& obj) {
     out << "\"" << obj << "\"";
@@ -240,7 +243,7 @@ struct format_override<std::string, JsonOutStream> {
 };
 
 template <>
-struct format_override<std::string, JsonInStream> {
+struct format_override<std::string, json::InStream> {
   template <typename Stream>
   static void format(Stream& out, std::string& obj) {
     out >> "\"" >> obj >> "\"";

@@ -13,70 +13,15 @@
 #include <sstream>
 #include <iostream>
 
-struct JsonValue;
-typedef std::string JsonString;
-typedef std::unordered_map<JsonString, JsonValue> JsonObject;
-typedef std::vector<JsonValue> JsonArray;
-typedef double JsonNumber;
-typedef bool JsonBool;
-struct JsonNull { };
+namespace json {
 
-template <>
-struct has_key<JsonValue> {
-  typedef void key_type;
-  typedef void mapped_type;
-  typedef void value_type;
-
-  const static bool value = false;
-};
-
-template <>
-struct format_override<JsonNull, JsonOutStream> {
-  template <typename Stream>
-  static void format(Stream& out, const JsonNull& obj) {
-    out << "null";
-  }
-};
-
-template <>
-struct format_override<JsonNull, JsonInStream> {
-  template <typename Stream>
-  static void format(Stream& in, JsonNull& obj) {
-    in.good();
-    in >> "null";
-  }
-};
-
-template <>
-struct format_override<JsonBool, JsonOutStream> {
-  template <typename Stream>
-  static void format(Stream& out, const JsonBool& obj) {
-    if (obj)
-      out << "true";
-    else
-      out << "false";
-  }
-};
-
-template <>
-struct format_override<JsonBool, JsonInStream> {
-  template <typename Stream>
-  static void format(Stream& in, JsonBool& obj) {
-    in.good();
-    in >> "true";
-    if (in) {
-      obj = true;
-      return;
-    }
-
-    in.good();
-    in >> "false";
-    if (in) {
-      obj = false;
-      return;
-    }
-  }
-};
+struct Value;
+typedef std::string String;
+typedef std::unordered_map<String, Value> Object;
+typedef std::vector<Value> Array;
+typedef double Number;
+typedef bool Bool;
+struct Null { };
 
 void concat_impl(std::ostream& out) {
 
@@ -111,14 +56,14 @@ struct TypeException : public ExceptionBase {
 struct QueryResult;
 struct SetterResult;
 
-struct JsonValue {
+struct Value {
   union value_type {
-    std::shared_ptr<JsonNull> null;
-    std::shared_ptr<JsonObject> object;
-    std::shared_ptr<JsonArray> array;
-    std::shared_ptr<JsonString> string;
-    std::shared_ptr<JsonNumber> number;
-    std::shared_ptr<JsonBool> boolean;
+    std::shared_ptr<Null> null;
+    std::shared_ptr<Object> object;
+    std::shared_ptr<Array> array;
+    std::shared_ptr<String> string;
+    std::shared_ptr<Number> number;
+    std::shared_ptr<Bool> boolean;
 
     value_type() : null(nullptr) { }
     ~value_type() { }
@@ -158,11 +103,11 @@ struct JsonValue {
     return (type == Type::Array && idx < ptr.array->size());
   }
 
-  JsonValue& lookup(const std::string& key) {
+  Value& lookup(const std::string& key) {
     return ptr.object->operator[](key);
   }
 
-  JsonValue& lookup(std::size_t idx) {
+  Value& lookup(std::size_t idx) {
     return ptr.array->operator[](idx);
   }
 
@@ -186,80 +131,80 @@ struct JsonValue {
   SetterResult operator [] (const char key[size]);
 
   template <std::size_t size>
-  const JsonValue& operator [] (const char key[size]) const;
+  const Value& operator [] (const char key[size]) const;
 
   SetterResult operator [] (const char* key);
 
-  const JsonValue& operator [] (const char* key) const;
+  const Value& operator [] (const char* key) const;
 
   SetterResult operator [] (const std::string& key);
 
-  const JsonValue& operator [] (const std::string& key) const;
+  const Value& operator [] (const std::string& key) const;
 
-  JsonValue& operator [] (const std::size_t idx);
+  Value& operator [] (const std::size_t idx);
 
-  const JsonValue& operator [] (const std::size_t idx) const;
+  const Value& operator [] (const std::size_t idx) const;
 
-  JsonValue& operator [] (const int idx);
+  Value& operator [] (const int idx);
 
-  const JsonValue& operator [] (const int idx) const;
+  const Value& operator [] (const int idx) const;
 
-  JsonValue()
+  Value()
     : type(Type::Null) { }
 
-  JsonValue(int i) {
+  Value(int i) {
     *this = static_cast<double>(i);
   }
 
-  JsonValue(double d) {
+  Value(double d) {
     *this = d;
   }
 
-  JsonValue(std::string&& str) {
+  Value(std::string&& str) {
     *this = str;
   }
 
-  JsonValue(const std::string& str) {
+  Value(const std::string& str) {
     *this = str;
   }
 
-  JsonValue(const char* str) {
+  Value(const char* str) {
     *this = str;
   }
 
-  JsonValue(bool b) {
+  Value(bool b) {
     *this = b;
   }
 
-  JsonValue(std::nullptr_t val) {
+  Value(std::nullptr_t val) {
     *this = nullptr;
   }
 
-  JsonValue(JsonArray arr) {
+  Value(Array arr) {
     *this = arr;
   }
 
-  JsonValue(JsonObject obj) {
+  Value(Object obj) {
     *this = obj;
   }
 
-  JsonValue(std::initializer_list<std::pair<const JsonString, JsonValue>> pairs) {
-    *this = JsonObject(pairs);
+  Value(std::initializer_list<std::pair<const String, Value>> pairs) {
+    *this = Object(pairs);
   }
 
-  JsonValue(const JsonValue& other) {
+  Value(const Value& other) {
     *this = other;
   }
 
-  JsonValue(JsonValue&& other) {
+  Value(Value&& other) {
     *this = other;
   }
 
-  ~JsonValue() {
+  ~Value() {
     cleanup();
   }
 
-  const JsonValue clone() const {
+  const Value clone() const {
     switch (type) {
       case Type::Object:
         return *ptr.object;
@@ -307,63 +252,61 @@ struct JsonValue {
     type = Type::Null;
   }
 
-  bool operator == (const JsonValue& other) const;
-
-  JsonValue& operator = (JsonObject _val) {
-    ptr.object = std::make_shared<JsonObject>(_val);
+  Value& operator = (Object _val) {
+    ptr.object = std::make_shared<Object>(_val);
     type = Type::Object;
     return *this;
   }
 
-  JsonValue& operator = (JsonArray _val) {
-    ptr.array = std::make_shared<JsonArray>(_val);
+  Value& operator = (Array _val) {
+    ptr.array = std::make_shared<Array>(_val);
     type = Type::Array;
     return *this;
   }
 
-  JsonValue& operator = (JsonString _val) {
-    ptr.string = std::make_shared<JsonString>(_val);
+  Value& operator = (String _val) {
+    ptr.string = std::make_shared<String>(_val);
     type = Type::String;
     return *this;
   }
 
-  JsonValue& operator = (const char* _str) {
-    ptr.string = std::make_shared<JsonString>(_str);
+  Value& operator = (const char* _str) {
+    ptr.string = std::make_shared<String>(_str);
     type = Type::String;
     return *this;
   }
 
-  JsonValue& operator = (JsonNumber _val) {
-    ptr.number = std::make_shared<JsonNumber>(_val);
+  Value& operator = (Number _val) {
+    ptr.number = std::make_shared<Number>(_val);
     type = Type::Number;
     return *this;
   }
 
-  JsonValue& operator = (int _val) {
-    ptr.number = std::make_shared<JsonNumber>(_val);
+  Value& operator = (int _val) {
+    ptr.number = std::make_shared<Number>(_val);
     type = Type::Number;
     return *this;
   }
 
-  JsonValue& operator = (JsonBool _val) {
-    ptr.boolean = std::make_shared<JsonBool>(_val);
+  Value& operator = (Bool _val) {
+    ptr.boolean = std::make_shared<Bool>(_val);
     type = Type::Boolean;
     return *this;
   }
 
-  JsonValue& operator = (const JsonNull& _val) {
+  Value& operator = (const Null& _val) {
     ptr.null = nullptr;
     type = Type::Null;
     return *this;
   }
 
-  JsonValue& operator = (std::nullptr_t _val) {
+  Value& operator = (std::nullptr_t _val) {
     ptr.null = nullptr;
     type = Type::Null;
     return *this;
   }
 
-  JsonValue& operator = (const JsonValue& _val) {
+  Value& operator = (const Value& _val) {
     if (this == &_val)
       return *this;
 
@@ -394,103 +337,113 @@ struct JsonValue {
 };
 
 template <>
-bool JsonValue::is<JsonObject>() const {
+bool Value::is<Object>() const {
   return type == Type::Object;
 }
 
 template <>
-bool JsonValue::is<JsonArray>() const {
+bool Value::is<Array>() const {
   return type == Type::Array;
 }
 
 template <>
-bool JsonValue::is<JsonString>() const {
+bool Value::is<String>() const {
   return type == Type::String;
 }
 
 template <>
-bool JsonValue::is<JsonNumber>() const {
+bool Value::is<Number>() const {
   return type == Type::Number;
 }
 
 template <>
-bool JsonValue::is<JsonBool>() const {
+bool Value::is<Bool>() const {
   return type == Type::Boolean;
 }
 
 template <>
-bool JsonValue::is<JsonNull>() const {
+bool Value::is<Null>() const {
   return type == Type::Null;
 }
 
 template <>
-JsonObject& JsonValue::as<JsonObject>() {
-  if (!is<JsonObject>())
+Object& Value::as<Object>() {
+  if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-const JsonObject& JsonValue::as<JsonObject>() const {
-  if (!is<JsonObject>())
+const Object& Value::as<Object>() const {
+  if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-JsonArray& JsonValue::as<JsonArray>() {
-  if (!is<JsonArray>())
+Array& Value::as<Array>() {
+  if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-const JsonArray& JsonValue::as<JsonArray>() const {
-  if (!is<JsonArray>())
+const Array& Value::as<Array>() const {
+  if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-JsonString& JsonValue::as<JsonString>() {
-  if (!is<JsonString>())
+String& Value::as<String>() {
+  if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-const JsonString& JsonValue::as<JsonString>() const {
-  if (!is<JsonString>())
+const String& Value::as<String>() const {
+  if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-JsonNumber& JsonValue::as<JsonNumber>() {
-  if (!is<JsonNumber>())
+Number& Value::as<Number>() {
+  if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-const JsonNumber& JsonValue::as<JsonNumber>() const {
-  if (!is<JsonNumber>())
+const Number& Value::as<Number>() const {
+  if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-JsonBool& JsonValue::as<JsonBool>() {
-  if (!is<JsonBool>())
+Bool& Value::as<Bool>() {
+  if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
-const JsonBool& JsonValue::as<JsonBool>() const {
-  if (!is<JsonBool>())
+const Bool& Value::as<Bool>() const {
+  if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
+}
+
+template <>
+Value& Value::as<Value>() {
+  return *this;
+}
+
+template <>
+const Value& Value::as<Value>() const {
+  return *this;
 }
 
 // TODO: should make this a union type
@@ -508,7 +461,7 @@ struct Key {
 struct QueryResult {
   QueryResult() {}
 
-  QueryResult(JsonValue* value)
+  QueryResult(Value* value)
     : _value(value) {}
 
   template <typename Default>
@@ -521,15 +474,15 @@ struct QueryResult {
     return d;
   }
 
-  JsonString defaultTo(const char* d) {
-    if (_value && _value->is<JsonString>())
-      return _value->as<JsonString>();
+  String defaultTo(const char* d) {
+    if (_value && _value->is<String>())
+      return _value->as<String>();
     return d;
   }
 
-  JsonNumber defaultTo(int d) {
-    if (_value && _value->is<JsonNumber>())
-      return _value->as<JsonNumber>();
+  Number defaultTo(int d) {
+    if (_value && _value->is<Number>())
+      return _value->as<Number>();
     return d;
   }
 
@@ -537,28 +490,42 @@ struct QueryResult {
     return _value == nullptr;
   }
 
-  JsonValue* _value = nullptr;
+  template <typename T>
+  bool operator == (const T& comp) const {
+    if (_value)
+      return *_value == comp;
+    return comp == Value();
+  }
+
+  template <typename T>
+  bool operator != (const T& comp) const {
+    if (_value)
+      return *_value != comp;
+    return comp == Value();
+  }
+
+  Value* _value = nullptr;
 };
 
 struct SetterResult {
-  SetterResult(const std::string& key, JsonValue& value)
+  SetterResult(const std::string& key, Value& value)
     : _value(value)
     {
       _keys.emplace_back(key);
     }
 
-  JsonValue& operator = (const JsonValue& set) {
-    JsonValue* root = &_value;
+  Value& operator = (const Value& set) {
+    Value* root = &_value;
     for (const auto& key : _keys) {
       if (key.isString) {
-        if (!root->is<JsonObject>())
-          *root = JsonObject();
+        if (!root->is<Object>())
+          *root = Object();
         root = &root->lookup(key.str);
       }
       else {
-        if (!root->is<JsonArray>())
-          *root = JsonArray();
-        auto& arr = root->as<JsonArray>();
+        if (!root->is<Array>())
+          *root = Array();
+        auto& arr = root->as<Array>();
         if (key.idx >= arr.size())
           arr.resize(key.idx + 1);
         root = &root->lookup(key.idx);
@@ -579,10 +546,28 @@ struct SetterResult {
     return *this;
   }
 
+  template <typename T>
+  bool operator == (const T& comp) const {
+    return as<T>() == comp;
+  }
+
+  bool operator == (int comp) const {
+    return as<Number>() == comp;
+  }
+
+  template <typename T>
+  bool operator != (const T& comp) const {
+    return as<T>() != comp;
+  }
+
+  bool operator != (int comp) const {
+    return as<Number>() != comp;
+  }
+
   template <typename Default>
-  auto defaultTo(const Default& d) -> decltype(QueryResult().defaultTo(d)) {
-    JsonValue* root = &_value;
-    for (auto& key : _keys) {
+  auto defaultTo(const Default& d) const -> decltype(QueryResult().defaultTo(d)) {
+    Value* root = &_value;
+    for (const auto& key : _keys) {
       if (key.isString) {
         if (!root->has(key.str))
           return QueryResult().defaultTo(d);
@@ -598,9 +583,9 @@ struct SetterResult {
   }
 
   template <typename Type>
-  Type& as() {
-    JsonValue* root = &_value;
-    for (auto& key : _keys) {
+  Type& as() const {
+    Value* root = &_value;
+    for (const auto& key : _keys) {
       if (key.isString) {
         if (!root->has(key.str))
           throw AccessException("Invalid Key: ", key.str);
@@ -616,103 +601,103 @@ struct SetterResult {
   }
 
   std::list<Key> _keys;
-  JsonValue& _value;
+  Value& _value;
 };
 
 template <std::size_t size>
-SetterResult JsonValue::operator [] (const char key[size]) {
+SetterResult Value::operator [] (const char key[size]) {
   return SetterResult(key, *this);
 }
 
 template <std::size_t size>
-const JsonValue& JsonValue::operator [] (const char key[size]) const {
-  const auto& obj = as<JsonObject>();
+const Value& Value::operator [] (const char key[size]) const {
+  const auto& obj = as<Object>();
   auto itr = obj.find(key);
   if (itr == obj.end())
     throw AccessException("Invalid Key: ", key);
   return itr->second;
 }
 
-SetterResult JsonValue::operator [] (const char* key) {
+SetterResult Value::operator [] (const char* key) {
   return SetterResult(key, *this);
 }
 
-const JsonValue& JsonValue::operator [] (const char* key) const {
-  const auto& obj = as<JsonObject>();
+const Value& Value::operator [] (const char* key) const {
+  const auto& obj = as<Object>();
   auto itr = obj.find(key);
   if (itr == obj.end())
     throw AccessException("Invalid Key: ", key);
   return itr->second;
 }
 
-SetterResult JsonValue::operator [] (const std::string& key) {
+SetterResult Value::operator [] (const std::string& key) {
   return SetterResult(key, *this);
 }
 
-const JsonValue& JsonValue::operator [] (const std::string& key) const {
-  const auto& obj = as<JsonObject>();
+const Value& Value::operator [] (const std::string& key) const {
+  const auto& obj = as<Object>();
   auto itr = obj.find(key);
   if (itr == obj.end())
     throw AccessException("Invalid Key: ", key);
   return itr->second;
 }
 
-JsonValue& JsonValue::operator [] (const std::size_t idx) {
-  auto& arr = as<JsonArray>();
+Value& Value::operator [] (const std::size_t idx) {
+  auto& arr = as<Array>();
   if (idx >= arr.size())
     throw AccessException("Invalid Index: ", idx);
   return arr[idx];
 }
 
-const JsonValue& JsonValue::operator [] (const std::size_t idx) const {
-  const auto& arr = as<JsonArray>();
+const Value& Value::operator [] (const std::size_t idx) const {
+  const auto& arr = as<Array>();
   if (idx >= arr.size())
     throw AccessException("Invalid Index: ", idx);
   return arr[idx];
 }
 
 template <typename Key>
-QueryResult JsonValue::get(const Key& key) {
+QueryResult Value::get(const Key& key) {
   if (has(key))
     return QueryResult(&lookup(key));
   return QueryResult();
 }
 
 template <typename Key, typename... Args>
-QueryResult JsonValue::get(const Key& key, const Args&... args) {
+QueryResult Value::get(const Key& key, const Args&... args) {
   if (has(key))
     return lookup(key).get(args...);
   return QueryResult();
 }
 
-JsonValue& JsonValue::operator [] (const int idx) {
+Value& Value::operator [] (const int idx) {
   return (*this)[static_cast<std::size_t>(idx)];
 }
 
-const JsonValue& JsonValue::operator [] (const int idx) const {
+const Value& Value::operator [] (const int idx) const {
   return (*this)[static_cast<std::size_t>(idx)];
 }
 
-bool equivalent(const JsonValue&, const JsonValue&);
-bool equivalent(const JsonObject&, const JsonObject&);
-bool equivalent(const JsonArray&, const JsonArray&);
-bool equivalent(const JsonString&, const JsonString&);
-bool equivalent(const JsonNumber&, const JsonNumber&);
-bool equivalent(const JsonBool&, const JsonBool&);
+bool equivalent(const Value&, const Value&);
+bool equivalent(const Object&, const Object&);
+bool equivalent(const Array&, const Array&);
+bool equivalent(const String&, const String&);
+bool equivalent(const Number&, const Number&);
+bool equivalent(const Bool&, const Bool&);
 
-bool equivalent(const JsonString& v1, const JsonString& v2) {
+bool equivalent(const String& v1, const String& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const JsonNumber& v1, const JsonNumber& v2) {
+bool equivalent(const Number& v1, const Number& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const JsonBool& v1, const JsonBool& v2) {
+bool equivalent(const Bool& v1, const Bool& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const JsonArray& v1, const JsonArray& v2) {
+bool equivalent(const Array& v1, const Array& v2) {
   if (v1.size() != v2.size())
     return false;
 
@@ -725,7 +710,7 @@ bool equivalent(const JsonArray& v1, const JsonArray& v2) {
 }
 
 // TODO: improve efficiency here - currently O(n^2) for dictionary comparisons
-bool equivalent(const JsonObject& v1, const JsonObject& v2) {
+bool equivalent(const Object& v1, const Object& v2) {
   if (v1.size() != v2.size())
     return false;
 
@@ -746,73 +731,106 @@ bool equivalent(const JsonObject& v1, const JsonObject& v2) {
   return true;
 }
 
-bool equivalent(const JsonValue& v1, const JsonValue& v2) {
+bool equivalent(const Value& v1, const Value& v2) {
   if (v1.type != v2.type)
     return false;
 
   switch (v1.type) {
-    case JsonValue::Type::Object:
-      return equivalent(v1.as<JsonObject>(), v2.as<JsonObject>());
-    case JsonValue::Type::Array:
-      return equivalent(v1.as<JsonArray>(), v2.as<JsonArray>());
-    case JsonValue::Type::String:
-      return equivalent(v1.as<JsonString>(), v2.as<JsonString>());
-    case JsonValue::Type::Number:
-      return equivalent(v1.as<JsonNumber>(), v2.as<JsonNumber>());
-    case JsonValue::Type::Boolean:
-      return equivalent(v1.as<JsonBool>(), v2.as<JsonBool>());
+    case Value::Type::Object:
+      return equivalent(v1.as<Object>(), v2.as<Object>());
+    case Value::Type::Array:
+      return equivalent(v1.as<Array>(), v2.as<Array>());
+    case Value::Type::String:
+      return equivalent(v1.as<String>(), v2.as<String>());
+    case Value::Type::Number:
+      return equivalent(v1.as<Number>(), v2.as<Number>());
+    case Value::Type::Boolean:
+      return equivalent(v1.as<Bool>(), v2.as<Bool>());
     default: {
       return true;
     }
   }
 }
 
-bool JsonValue::operator == (const JsonValue& other) const {
-  return equivalent(*this, other);
+bool operator == (const Value& left, const Value& right) {
+  return equivalent(left, right);
 };
 
-typedef typename JsonObject::value_type JsonPair;
+//bool operator == (const Value& left, )
 
+bool operator != (const Value& left, const Value& right) {
+  return !(left == right);
+};
+
+typedef typename Object::value_type Pair;
+
+std::ostream& operator << (std::ostream& out, const Value& v) {
+  OutStream ss(out);
+  format(ss, v);
+  return out;
+}
+
+std::istream& operator >> (std::istream& in, Value& v) {
+  InStream ssi(in);
+  format(ssi, v);
+  return in;
+}
+
+std::ostream& operator << (std::ostream& out, const QueryResult& res) {
+  OutStream ss(out);
+  if (res._value)
+    format(ss, res._value);
+  else
+    format(ss, Value());
+  return out;
+}
+
+std::ostream& operator << (std::ostream& out, const SetterResult& res) {
+  OutStream ss(out);
+  Value& v = res.as<Value>();
+  format(ss, v);
+  return out;
+}
+
+}
 
 template <>
-struct format_override<JsonValue, JsonOutStream> {
+struct format_override<json::Value, json::OutStream> {
   template <typename Stream>
-  static void format(Stream& out, const JsonValue& value) {
+  static void format(Stream& out, const json::Value& value) {
+    using namespace json;
+
     switch(value.type) {
-      case JsonValue::Type::Object:
+      case Value::Type::Object:
         ::format(out, *value.ptr.object);
         break;
-      case JsonValue::Type::Array:
+      case Value::Type::Array:
         ::format(out, *value.ptr.array);
         break;
-      case JsonValue::Type::String:
+      case Value::Type::String:
         ::format(out, *value.ptr.string);
         break;
-      case JsonValue::Type::Number:
+      case Value::Type::Number:
         ::format(out, *value.ptr.number);
         break;
-      case JsonValue::Type::Boolean:
+      case Value::Type::Boolean:
         ::format(out, *value.ptr.boolean);
         break;
-      case JsonValue::Type::Null:
-        ::format(out, JsonNull());
+      case Value::Type::Null:
+        ::format(out, Null());
         break;
     }
   }
 };
 
-std::ostream& operator << (std::ostream& out, const JsonValue& v) {
-  JsonOutStream ss(out);
-  format(ss, v);
-  return out;
-}
-
 template <>
-struct format_override<JsonValue, JsonInStream> {
+struct format_override<json::Value, json::InStream> {
   template <typename Stream>
-  static void format(Stream& in, JsonValue& value) {
+  static void format(Stream& in, json::Value& value) {
+    using namespace json;
+
     in.good();
-    JsonString s;
+    String s;
     ::format(in, s);
     if (in) {
       value = s;
@@ -820,7 +838,7 @@ struct format_override<JsonValue, JsonInStream> {
     }
 
     in.good();
-    JsonNumber n;
+    Number n;
     ::format(in, n);
     if (in) {
       value = n;
@@ -828,7 +846,7 @@ struct format_override<JsonValue, JsonInStream> {
     }
 
     in.good();
-    JsonBool b;
+    Bool b;
     ::format(in, b);
     if (in) {
       value = b;
@@ -836,7 +854,7 @@ struct format_override<JsonValue, JsonInStream> {
     }
 
     in.good();
-    JsonNull nu;
+    Null nu;
     ::format(in, nu);
     if (in) {
       value = nu;
@@ -844,7 +862,7 @@ struct format_override<JsonValue, JsonInStream> {
     }
 
     in.good();
-    JsonObject ob;
+    Object ob;
     ::format(in, ob);
     if (in) {
       value = std::move(ob);
@@ -852,10 +870,67 @@ struct format_override<JsonValue, JsonInStream> {
     }
 
     in.good();
-    JsonArray ar;
+    Array ar;
     ::format(in, ar);
     if (in) {
       value = std::move(ar);
+      return;
+    }
+  }
+};
+
+template <>
+struct has_key<json::Value> {
+  typedef void key_type;
+  typedef void mapped_type;
+  typedef void value_type;
+
+  const static bool value = false;
+};
+
+template <>
+struct format_override<json::Null, json::OutStream> {
+  template <typename Stream>
+  static void format(Stream& out, const json::Null& obj) {
+    out << "null";
+  }
+};
+
+template <>
+struct format_override<json::Null, json::InStream> {
+  template <typename Stream>
+  static void format(Stream& in, json::Null& obj) {
+    in.good();
+    in >> "null";
+  }
+};
+
+template <>
+struct format_override<json::Bool, json::OutStream> {
+  template <typename Stream>
+  static void format(Stream& out, const json::Bool& obj) {
+    if (obj)
+      out << "true";
+    else
+      out << "false";
+  }
+};
+
+template <>
+struct format_override<json::Bool, json::InStream> {
+  template <typename Stream>
+  static void format(Stream& in, json::Bool& obj) {
+    in.good();
+    in >> "true";
+    if (in) {
+      obj = true;
+      return;
+    }
+
+    in.good();
+    in >> "false";
+    if (in) {
+      obj = false;
       return;
     }
   }
