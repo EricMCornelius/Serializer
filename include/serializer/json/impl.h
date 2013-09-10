@@ -538,7 +538,7 @@ struct QueryResult {
   }
 
   template <typename Default>
-  auto defaultTo(Default& d) const -> typename std::remove_const<decltype(defaultToImpl(d))>::type {
+  auto defaultTo(const Default& d) const -> typename std::remove_const<decltype(defaultToImpl(d))>::type {
     const Value* root = _value;
     for (const auto& key : _keys) {
       if (key.isString) {
