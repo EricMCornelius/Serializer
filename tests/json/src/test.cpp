@@ -98,7 +98,7 @@ describe(suite)
       {"Hello", "World"}
     };
 
-    ut_assert_throws(obj["invalid"], json::AccessException);
+    ut_assert_throws(obj["invalid"].as<Value>(), json::AccessException);
   });
 
   it("should throw an exception due to invalid array access", [] {
@@ -106,7 +106,7 @@ describe(suite)
       {"data", json::Array{"Hello", "World"}}
     };
 
-    ut_assert_throws(obj["data"][2], json::AccessException);
+    ut_assert_throws(obj["data"][2].as<Value>(), json::AccessException);
   });
 
   it("should demonstrate value reference semantics", [] {
@@ -177,8 +177,8 @@ describe(suite)
       {"Data", json::Array{"This","Is","A","Test"}}
     };
 
-    ut_assert_eq(v.get("hello").defaultTo("Test"), "Test");
-    ut_assert_eq(v.get("Data", 0).defaultTo("this"), "This");
+    ut_assert_eq(v["hello"].defaultTo("Test"), "Test");
+    ut_assert_eq(v["Data"][0].defaultTo("this"), "This");
   });
 
   it("should return a defaulted int value", [] {
@@ -186,7 +186,7 @@ describe(suite)
       {"Hello", "World"}
     };
 
-    ut_assert_eq(v.get("hello").defaultTo(1), 1);
+    ut_assert_eq(v["hello"].defaultTo(1), 1);
   });
 
   it("should return a defaulted object value", [] {
@@ -198,8 +198,8 @@ describe(suite)
       {"default", "implementation"}
     };
 
-    ut_assert_eq(v.get("missing").defaultTo(t), t);
-    ut_assert_neq(v.get("test").defaultTo(t), t);
+    ut_assert_eq(v["missing"].defaultTo(t), t);
+    ut_assert_neq(v["test"].defaultTo(t), t);
   });
 
   it("should not create nested object via lookup", [] {
@@ -208,7 +208,7 @@ describe(suite)
     };
     v["first"]["second"];
 
-    ut_assert_eq(v.get("first"), Value());
+    ut_assert_eq(v["first"].defaultTo(Null()), Null());
   });
 
   it("should create a nested object via assignment", [] {
@@ -217,7 +217,7 @@ describe(suite)
     };
     v["first"]["second"] = {{"Hello", "World"}};
 
-    ut_assert_eq(v.get("first", "second", "Hello"), "World");
+    ut_assert_eq(v["first"]["second"]["Hello"], "World");
   });
 
   it("should create a nested array via assignment", [] {
@@ -226,7 +226,7 @@ describe(suite)
     };
     v["first"]["second"][2] = {{"Hello", "World"}};
 
-    ut_assert_eq(v.get("first", "second", 2, "Hello"), "World");
+    ut_assert_eq(v["first"]["second"][2]["Hello"], "World");
   });
 
   it("should default to 1", [] {

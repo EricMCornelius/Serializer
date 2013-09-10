@@ -82,6 +82,25 @@ struct Value {
 
   Type type = Type::Null;
 
+  bool parse(const std::string& str) {
+    InStream ssi(str);
+    format(ssi, *this);
+    return true;
+  }
+
+  bool parse(std::istream& in) {
+    InStream ssi(in);
+    format(ssi, *this);
+    return true;
+  }
+
+  std::string json() const {
+    std::stringstream out;
+    OutStream ss(out);
+    format(ss, *this);
+    return std::move(out.str());
+  }
+
   template <typename Type>
   Type& as();
 
@@ -111,6 +130,16 @@ struct Value {
     return ptr.array->operator[](idx);
   }
 
+  const Value& lookup(const std::string& key) const {
+    auto itr = ptr.object->find(key);
+    return itr->second;
+  }
+
+  const Value& lookup(std::size_t idx) const {
+    return ptr.array->operator[](idx);
+  }
+
+
   template <typename Value>
   void set(const std::string& key, const Value& v) {
     ptr.object->operator[](key) = v;
@@ -121,33 +150,27 @@ struct Value {
     ptr.array->operator[](idx) = v;
   }
 
-  template <typename Key>
-  QueryResult get(const Key& key);
-
-  template <typename Key, typename... Args>
-  QueryResult get(const Key& key, const Args&... args);
-
   template <std::size_t size>
   SetterResult operator [] (const char key[size]);
 
   template <std::size_t size>
-  const Value& operator [] (const char key[size]) const;
+  QueryResult operator [] (const char key[size]) const;
 
   SetterResult operator [] (const char* key);
 
-  const Value& operator [] (const char* key) const;
+  QueryResult operator [] (const char* key) const;
 
   SetterResult operator [] (const std::string& key);
 
-  const Value& operator [] (const std::string& key) const;
+  QueryResult operator [] (const std::string& key) const;
 
-  Value& operator [] (const std::size_t idx);
+  SetterResult operator [] (const std::size_t idx);
 
-  const Value& operator [] (const std::size_t idx) const;
+  QueryResult operator [] (const std::size_t idx) const;
 
-  Value& operator [] (const int idx);
+  SetterResult operator [] (const int idx);
 
-  const Value& operator [] (const int idx) const;
+  QueryResult operator [] (const int idx) const;
 
   Value()
     : type(Type::Null) { }
@@ -158,6 +181,10 @@ struct Value {
 
   Value(double d) {
     *this = d;
+  }
+
+  Value(std::size_t i) {
+    *this = static_cast<double>(i);
   }
 
   Value(std::string&& str) {
@@ -306,6 +333,11 @@ struct Value {
     return *this;
   }
 
+  Value& operator = (std::initializer_list<std::pair<const String, Value>> pairs) {
+    *this = Object(pairs);
+    return *this;
+  }
+
   Value& operator = (const Value& _val) {
     if (this == &_val)
       return *this;
@@ -381,6 +413,13 @@ const Object& Value::as<Object>() const {
 }
 
 template <>
+const Object& Value::as<const Object&>() const {
+  if (!is<Object>())
+    throw TypeException("Object type assertion failed");
+  return *ptr.object;
+}
+
+template <>
 Array& Value::as<Array>() {
   if (!is<Array>())
     throw TypeException("Array type assertion failed");
@@ -437,6 +476,13 @@ const Bool& Value::as<Bool>() const {
 }
 
 template <>
+const Null& Value::as<const Null&>() const {
+  if (!is<Null>())
+    throw TypeException("Null type assertion failed");
+  return *ptr.null;
+}
+
+template <>
 Value& Value::as<Value>() {
   return *this;
 }
@@ -458,36 +504,69 @@ struct Key {
   bool isString = false;
 };
 
+// TODO: figure out return types here...
 struct QueryResult {
   QueryResult() {}
 
-  QueryResult(Value* value)
-    : _value(value) {}
+  QueryResult(const std::list<Key>& keys, const Value& value)
+    : _keys(keys), _value(&value)
+  {}
+
+  QueryResult(const std::string& key, const Value& value)
+    : _value(&value)
+  {
+    _keys.emplace_back(key);
+  }
+
+  QueryResult(std::size_t key, const Value& value)
+    : _value(&value)
+  {
+    _keys.emplace_back(key);
+  }
 
   template <typename Default>
-  Default defaultTo(const Default& d) {
-    if (!_value)
-      return d;
-
-    if (_value->is<Default>())
-      return _value->as<Default>();
+  const Default& defaultToImpl(const Default& d) const {
     return d;
   }
 
-  String defaultTo(const char* d) {
-    if (_value && _value->is<String>())
-      return _value->as<String>();
+  const String defaultToImpl(const char* d) const {
     return d;
   }
 
-  Number defaultTo(int d) {
-    if (_value && _value->is<Number>())
-      return _value->as<Number>();
+  const Number defaultToImpl(int d) const {
     return d;
   }
 
-  bool isNull() {
+  template <typename Default>
+  auto defaultTo(Default& d) const -> typename std::remove_const<decltype(defaultToImpl(d))>::type {
+    const Value* root = _value;
+    for (const auto& key : _keys) {
+      if (key.isString) {
+        if (!root->has(key.str))
+          return defaultToImpl(d);
+        root = &root->lookup(key.str);
+      }
+      else {
+        if (!root->has(key.idx))
+          return defaultToImpl(d);
+        root = &root->lookup(key.idx);
+      }
+    }
+    return root->as<typename std::remove_const<decltype(defaultToImpl(d))>::type>();
+  }
+
+  bool isNull() const {
     return _value == nullptr;
+  }
+
+  QueryResult& operator[](const char* key) {
+    _keys.emplace_back(key);
+    return *this;
+  }
+
+  QueryResult& operator[](int idx) {
+    _keys.emplace_back(idx);
+    return *this;
   }
 
   template <typename T>
@@ -504,15 +583,44 @@ struct QueryResult {
     return comp == Value();
   }
 
-  Value* _value = nullptr;
+  template <typename Type>
+  const Type& as() const {
+    const Value* root = _value;
+    for (const auto& key : _keys) {
+      if (key.isString) {
+        if (!root->has(key.str))
+          throw AccessException("Invalid Key: ", key.str);
+        root = &root->lookup(key.str);
+      }
+      else {
+        if (!root->has(key.idx))
+          throw AccessException("Invalid Index: ", key.idx);
+        root = &root->lookup(key.idx);
+      }
+    }
+    return root->as<Type>();
+  }
+
+  operator const Value&() const {
+    return as<Value>();
+  }
+
+  std::list<Key> _keys;
+  const Value* _value = nullptr;
 };
 
 struct SetterResult {
   SetterResult(const std::string& key, Value& value)
     : _value(value)
-    {
-      _keys.emplace_back(key);
-    }
+  {
+    _keys.emplace_back(key);
+  }
+
+  SetterResult(std::size_t key, Value& value)
+    : _value(value)
+  {
+    _keys.emplace_back(key);
+  }
 
   Value& operator = (const Value& set) {
     Value* root = &_value;
@@ -546,40 +654,9 @@ struct SetterResult {
     return *this;
   }
 
-  template <typename T>
-  bool operator == (const T& comp) const {
-    return as<T>() == comp;
-  }
-
-  bool operator == (int comp) const {
-    return as<Number>() == comp;
-  }
-
-  template <typename T>
-  bool operator != (const T& comp) const {
-    return as<T>() != comp;
-  }
-
-  bool operator != (int comp) const {
-    return as<Number>() != comp;
-  }
-
   template <typename Default>
-  auto defaultTo(const Default& d) const -> decltype(QueryResult().defaultTo(d)) {
-    Value* root = &_value;
-    for (const auto& key : _keys) {
-      if (key.isString) {
-        if (!root->has(key.str))
-          return QueryResult().defaultTo(d);
-        root = &root->lookup(key.str);
-      }
-      else {
-        if (!root->has(key.idx))
-          return QueryResult().defaultTo(d);
-        root = &root->lookup(key.idx);
-      }
-    }
-    return QueryResult(root).defaultTo(d);
+  auto defaultTo(const Default& d) const -> decltype(QueryResult().defaultToImpl(d)) {
+    return QueryResult(_keys, _value).defaultTo(d);
   }
 
   template <typename Type>
@@ -600,6 +677,14 @@ struct SetterResult {
     return root->as<Type>();
   }
 
+  operator Value&() {
+    return as<Value>();
+  }
+
+  operator const Value&() const {
+    return as<Value>();
+  }
+
   std::list<Key> _keys;
   Value& _value;
 };
@@ -610,72 +695,40 @@ SetterResult Value::operator [] (const char key[size]) {
 }
 
 template <std::size_t size>
-const Value& Value::operator [] (const char key[size]) const {
-  const auto& obj = as<Object>();
-  auto itr = obj.find(key);
-  if (itr == obj.end())
-    throw AccessException("Invalid Key: ", key);
-  return itr->second;
+QueryResult Value::operator [] (const char key[size]) const {
+  return QueryResult(key, *this);
 }
 
 SetterResult Value::operator [] (const char* key) {
   return SetterResult(key, *this);
 }
 
-const Value& Value::operator [] (const char* key) const {
-  const auto& obj = as<Object>();
-  auto itr = obj.find(key);
-  if (itr == obj.end())
-    throw AccessException("Invalid Key: ", key);
-  return itr->second;
+QueryResult Value::operator [] (const char* key) const {
+  return QueryResult(key, *this);
 }
 
 SetterResult Value::operator [] (const std::string& key) {
   return SetterResult(key, *this);
 }
 
-const Value& Value::operator [] (const std::string& key) const {
-  const auto& obj = as<Object>();
-  auto itr = obj.find(key);
-  if (itr == obj.end())
-    throw AccessException("Invalid Key: ", key);
-  return itr->second;
+QueryResult Value::operator [] (const std::string& key) const {
+  return QueryResult(key, *this);
 }
 
-Value& Value::operator [] (const std::size_t idx) {
-  auto& arr = as<Array>();
-  if (idx >= arr.size())
-    throw AccessException("Invalid Index: ", idx);
-  return arr[idx];
+SetterResult Value::operator [] (const std::size_t idx) {
+  return SetterResult(idx, *this);
 }
 
-const Value& Value::operator [] (const std::size_t idx) const {
-  const auto& arr = as<Array>();
-  if (idx >= arr.size())
-    throw AccessException("Invalid Index: ", idx);
-  return arr[idx];
+QueryResult Value::operator [] (const std::size_t idx) const {
+  return QueryResult(idx, *this);
 }
 
-template <typename Key>
-QueryResult Value::get(const Key& key) {
-  if (has(key))
-    return QueryResult(&lookup(key));
-  return QueryResult();
+SetterResult Value::operator [] (const int idx) {
+  return SetterResult(idx, *this);
 }
 
-template <typename Key, typename... Args>
-QueryResult Value::get(const Key& key, const Args&... args) {
-  if (has(key))
-    return lookup(key).get(args...);
-  return QueryResult();
-}
-
-Value& Value::operator [] (const int idx) {
-  return (*this)[static_cast<std::size_t>(idx)];
-}
-
-const Value& Value::operator [] (const int idx) const {
-  return (*this)[static_cast<std::size_t>(idx)];
+QueryResult Value::operator [] (const int idx) const {
+  return QueryResult(idx, *this);
 }
 
 bool equivalent(const Value&, const Value&);
@@ -756,7 +809,9 @@ bool operator == (const Value& left, const Value& right) {
   return equivalent(left, right);
 };
 
-//bool operator == (const Value& left, )
+bool operator == (const Null& left, const Null& right) {
+  return true;
+}
 
 bool operator != (const Value& left, const Value& right) {
   return !(left == right);
@@ -790,6 +845,10 @@ std::ostream& operator << (std::ostream& out, const SetterResult& res) {
   Value& v = res.as<Value>();
   format(ss, v);
   return out;
+}
+
+std::ostream& operator << (std::ostream& out, const Null& n) {
+  return out << "null";
 }
 
 }
