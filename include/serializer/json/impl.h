@@ -494,6 +494,7 @@ const Value& Value::as<Value>() const {
 
 // TODO: should make this a union type
 struct Key {
+  Key() {}
   Key(const std::string& str_)
     : str(str_), isString(true) {}
   Key(int idx_)
@@ -506,9 +507,13 @@ struct Key {
 
 // TODO: figure out return types here...
 struct QueryResult {
+  typedef std::vector<Key> KeyList;
+  KeyList _keys;
+  const Value* _value = nullptr;
+
   QueryResult() {}
 
-  QueryResult(const std::list<Key>& keys, const Value& value)
+  QueryResult(const KeyList& keys, const Value& value)
     : _keys(keys), _value(&value)
   {}
 
@@ -517,6 +522,10 @@ struct QueryResult {
   {
     _keys.emplace_back(key);
   }
+
+  QueryResult(KeyList&& keys, const Value& value)
+    : _keys(keys), _value(&value)
+  {}
 
   QueryResult(std::size_t key, const Value& value)
     : _value(&value)
@@ -559,14 +568,16 @@ struct QueryResult {
     return _value == nullptr;
   }
 
-  QueryResult& operator[](const char* key) {
-    _keys.emplace_back(key);
-    return *this;
+  QueryResult operator[](const char* key) const {
+    KeyList cpy(_keys);
+    cpy.emplace_back(key);
+    return QueryResult(std::move(cpy), *_value);
   }
 
-  QueryResult& operator[](int idx) {
-    _keys.emplace_back(idx);
-    return *this;
+  QueryResult operator[](int idx) const {
+    KeyList cpy(_keys);
+    cpy.emplace_back(idx);
+    return QueryResult(std::move(cpy), *_value);
   }
 
   template <typename T>
@@ -604,12 +615,21 @@ struct QueryResult {
   operator const Value&() const {
     return as<Value>();
   }
-
-  std::list<Key> _keys;
-  const Value* _value = nullptr;
 };
 
 struct SetterResult {
+  typedef std::vector<Key> KeyList;
+  KeyList _keys;
+  Value& _value;
+
+  SetterResult(const KeyList& keys, Value& value)
+    : _keys(keys), _value(value)
+  {}
+
+  SetterResult(KeyList&& keys, Value& value)
+    : _keys(keys), _value(value)
+  {}
+
   SetterResult(const std::string& key, Value& value)
     : _value(value)
   {
@@ -644,14 +664,16 @@ struct SetterResult {
     return _value;
   }
 
-  SetterResult& operator[](const char* key) {
-    _keys.emplace_back(key);
-    return *this;
+  SetterResult operator[](const char* key) const {
+    KeyList cpy(_keys);
+    cpy.emplace_back(key);
+    return SetterResult(std::move(cpy), _value);
   }
 
-  SetterResult& operator[](int idx) {
-    _keys.emplace_back(idx);
-    return *this;
+  SetterResult operator[](int idx) const {
+    KeyList cpy(_keys);
+    cpy.emplace_back(idx);
+    return SetterResult(std::move(cpy), _value);
   }
 
   template <typename Default>
@@ -684,9 +706,6 @@ struct SetterResult {
   operator const Value&() const {
     return as<Value>();
   }
-
-  std::list<Key> _keys;
-  Value& _value;
 };
 
 template <std::size_t size>
