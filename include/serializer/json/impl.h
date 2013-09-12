@@ -546,6 +546,10 @@ struct QueryResult {
     return d;
   }
 
+  const Bool defaultToImpl(bool d) const {
+    return d;
+  }
+
   template <typename Default>
   auto defaultTo(const Default& d) const -> typename std::remove_const<decltype(defaultToImpl(d))>::type {
     const Value* root = _value;
