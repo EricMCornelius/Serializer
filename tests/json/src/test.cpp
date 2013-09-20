@@ -253,6 +253,20 @@ describe(suite)
     ut_assert_throws(v["example"]["test"].as<String>(), json::TypeException);
   });
 
+  it("should fail to parse a json string", [] {
+    constexpr char* input = R"(
+      {"Hello",: [1,2,3],
+       "World": [4,"'",5,6,0,"test"],
+       "...": "..."}
+    )";
+
+    json::Value v;
+    auto res = v.parse(input);
+
+    ut_assert_eq(res, false);
+    ut_assert(v.is<json::Null>());
+  });
+
   /*
   it("should parse a very large json object", []{
     for (std::size_t i = 0; i < 10; ++i) {

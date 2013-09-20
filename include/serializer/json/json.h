@@ -142,19 +142,15 @@ struct formatter<U, json::InStream> {
     if (!(out >> "["))
       return false;
 
-    while(true) {
+    do {
       value_type obj;
-      if (!format(out, obj))
-        break;
-      *itr = obj;
-      if (!(out >> ","))
-        break;
+      if (format(out, obj))
+        *itr = obj;
     }
+    while(out >> ",");
 
     out.good();
-    if (!(out >> "]"))
-      return false;
-
+    out >> "]";
     return out;
   }
 
@@ -168,25 +164,22 @@ struct formatter<U, json::InStream> {
     if (!(out >> "{"))
       return false;
 
-    while(true) {
+    do {
       key_type key;
       mapped_type value;
-      if (!format(out, key))
-        break;
-      if (!(out >> ":"))
-        break;
-      if (!format(out, value))
-        break;
-      *itr = value_type(key, value);
+      format(out, key);
+      out >> ":";
+      format(out, value);
 
-      if (!(out >> ","))
+      if (!out)
         break;
+
+      *itr = value_type(key, value);
     }
+    while(out >> ",");
 
     out.good();
-    if (!(out >> "}"))
-      return false;
-
+    out >> "}";
     return out;
   }
 
@@ -198,20 +191,15 @@ struct formatter<U, json::InStream> {
     if (!(out >> "{"))
       return false;
 
-    while(true) {
+    do {
       value_type obj;
-      if (!format(out, obj))
-        break;
-      *itr = obj;
-
-      if (!(out >> ","))
-        break;
+      if (format(out, obj))
+        *itr = obj;
     }
+    while(out >> ",");
 
     out.good();
-    if (!(out >> "}"))
-      return false;
-
+    out >> "}";
     return out;
   }
 

@@ -85,13 +85,13 @@ struct Value {
   bool parse(const std::string& str) {
     InStream ssi(str);
     format(ssi, *this);
-    return true;
+    return ssi;
   }
 
   bool parse(std::istream& in) {
     InStream ssi(in);
     format(ssi, *this);
-    return true;
+    return ssi;
   }
 
   std::string json() const {
