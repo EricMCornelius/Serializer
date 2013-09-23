@@ -36,7 +36,7 @@ InStream& operator >> (InStream& in, T& obj) {
   return in;
 }
 
-InStream& operator >> (InStream& in, std::string& obj) {
+inline InStream& operator >> (InStream& in, std::string& obj) {
   char c;
   bool escape = false;
   while(in.buffer >> std::noskipws >> c) {
@@ -51,7 +51,7 @@ InStream& operator >> (InStream& in, std::string& obj) {
   return in;
 }
 
-InStream& operator >> (InStream& in, const char* str) {
+inline InStream& operator >> (InStream& in, const char* str) {
   std::size_t len = std::strlen(str);
   std::size_t count = 0;
   char c;

@@ -23,7 +23,7 @@ typedef double Number;
 typedef bool Bool;
 struct Null { };
 
-void concat_impl(std::ostream& out) {
+inline void concat_impl(std::ostream& out) {
 
 }
 
@@ -369,126 +369,126 @@ struct Value {
 };
 
 template <>
-bool Value::is<Object>() const {
+inline bool Value::is<Object>() const {
   return type == Type::Object;
 }
 
 template <>
-bool Value::is<Array>() const {
+inline bool Value::is<Array>() const {
   return type == Type::Array;
 }
 
 template <>
-bool Value::is<String>() const {
+inline bool Value::is<String>() const {
   return type == Type::String;
 }
 
 template <>
-bool Value::is<Number>() const {
+inline bool Value::is<Number>() const {
   return type == Type::Number;
 }
 
 template <>
-bool Value::is<Bool>() const {
+inline bool Value::is<Bool>() const {
   return type == Type::Boolean;
 }
 
 template <>
-bool Value::is<Null>() const {
+inline bool Value::is<Null>() const {
   return type == Type::Null;
 }
 
 template <>
-Object& Value::as<Object>() {
+inline Object& Value::as<Object>() {
   if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-const Object& Value::as<Object>() const {
+inline const Object& Value::as<Object>() const {
   if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-const Object& Value::as<const Object&>() const {
+inline const Object& Value::as<const Object&>() const {
   if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-Array& Value::as<Array>() {
+inline Array& Value::as<Array>() {
   if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-const Array& Value::as<Array>() const {
+inline const Array& Value::as<Array>() const {
   if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-String& Value::as<String>() {
+inline String& Value::as<String>() {
   if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-const String& Value::as<String>() const {
+inline const String& Value::as<String>() const {
   if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-Number& Value::as<Number>() {
+inline Number& Value::as<Number>() {
   if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-const Number& Value::as<Number>() const {
+inline const Number& Value::as<Number>() const {
   if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-Bool& Value::as<Bool>() {
+inline Bool& Value::as<Bool>() {
   if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
-const Bool& Value::as<Bool>() const {
+inline const Bool& Value::as<Bool>() const {
   if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
-const Null& Value::as<const Null&>() const {
+inline const Null& Value::as<const Null&>() const {
   if (!is<Null>())
     throw TypeException("Null type assertion failed");
   return *ptr.null;
 }
 
 template <>
-Value& Value::as<Value>() {
+inline Value& Value::as<Value>() {
   return *this;
 }
 
 template <>
-const Value& Value::as<Value>() const {
+inline const Value& Value::as<Value>() const {
   return *this;
 }
 
@@ -722,35 +722,35 @@ QueryResult Value::operator [] (const char key[size]) const {
   return QueryResult(key, *this);
 }
 
-SetterResult Value::operator [] (const char* key) {
+inline SetterResult Value::operator [] (const char* key) {
   return SetterResult(key, *this);
 }
 
-QueryResult Value::operator [] (const char* key) const {
+inline QueryResult Value::operator [] (const char* key) const {
   return QueryResult(key, *this);
 }
 
-SetterResult Value::operator [] (const std::string& key) {
+inline SetterResult Value::operator [] (const std::string& key) {
   return SetterResult(key, *this);
 }
 
-QueryResult Value::operator [] (const std::string& key) const {
+inline QueryResult Value::operator [] (const std::string& key) const {
   return QueryResult(key, *this);
 }
 
-SetterResult Value::operator [] (const std::size_t idx) {
+inline SetterResult Value::operator [] (const std::size_t idx) {
   return SetterResult(idx, *this);
 }
 
-QueryResult Value::operator [] (const std::size_t idx) const {
+inline QueryResult Value::operator [] (const std::size_t idx) const {
   return QueryResult(idx, *this);
 }
 
-SetterResult Value::operator [] (const int idx) {
+inline SetterResult Value::operator [] (const int idx) {
   return SetterResult(idx, *this);
 }
 
-QueryResult Value::operator [] (const int idx) const {
+inline QueryResult Value::operator [] (const int idx) const {
   return QueryResult(idx, *this);
 }
 
@@ -761,19 +761,19 @@ bool equivalent(const String&, const String&);
 bool equivalent(const Number&, const Number&);
 bool equivalent(const Bool&, const Bool&);
 
-bool equivalent(const String& v1, const String& v2) {
+inline bool equivalent(const String& v1, const String& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const Number& v1, const Number& v2) {
+inline bool equivalent(const Number& v1, const Number& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const Bool& v1, const Bool& v2) {
+inline bool equivalent(const Bool& v1, const Bool& v2) {
   return v1 == v2;
 }
 
-bool equivalent(const Array& v1, const Array& v2) {
+inline bool equivalent(const Array& v1, const Array& v2) {
   if (v1.size() != v2.size())
     return false;
 
@@ -786,7 +786,7 @@ bool equivalent(const Array& v1, const Array& v2) {
 }
 
 // TODO: improve efficiency here - currently O(n^2) for dictionary comparisons
-bool equivalent(const Object& v1, const Object& v2) {
+inline bool equivalent(const Object& v1, const Object& v2) {
   if (v1.size() != v2.size())
     return false;
 
@@ -807,7 +807,7 @@ bool equivalent(const Object& v1, const Object& v2) {
   return true;
 }
 
-bool equivalent(const Value& v1, const Value& v2) {
+inline bool equivalent(const Value& v1, const Value& v2) {
   if (v1.type != v2.type)
     return false;
 
@@ -828,33 +828,33 @@ bool equivalent(const Value& v1, const Value& v2) {
   }
 }
 
-bool operator == (const Value& left, const Value& right) {
+inline bool operator == (const Value& left, const Value& right) {
   return equivalent(left, right);
 };
 
-bool operator == (const Null& left, const Null& right) {
+inline bool operator == (const Null& left, const Null& right) {
   return true;
 }
 
-bool operator != (const Value& left, const Value& right) {
+inline bool operator != (const Value& left, const Value& right) {
   return !(left == right);
 };
 
 typedef typename Object::value_type Pair;
 
-std::ostream& operator << (std::ostream& out, const Value& v) {
+inline std::ostream& operator << (std::ostream& out, const Value& v) {
   OutStream ss(out);
   format(ss, v);
   return out;
 }
 
-std::istream& operator >> (std::istream& in, Value& v) {
+inline std::istream& operator >> (std::istream& in, Value& v) {
   InStream ssi(in);
   format(ssi, v);
   return in;
 }
 
-std::ostream& operator << (std::ostream& out, const QueryResult& res) {
+inline std::ostream& operator << (std::ostream& out, const QueryResult& res) {
   OutStream ss(out);
   if (res._value)
     format(ss, res._value);
@@ -863,14 +863,14 @@ std::ostream& operator << (std::ostream& out, const QueryResult& res) {
   return out;
 }
 
-std::ostream& operator << (std::ostream& out, const SetterResult& res) {
+inline std::ostream& operator << (std::ostream& out, const SetterResult& res) {
   OutStream ss(out);
   Value& v = res.as<Value>();
   format(ss, v);
   return out;
 }
 
-std::ostream& operator << (std::ostream& out, const Null& n) {
+inline std::ostream& operator << (std::ostream& out, const Null& n) {
   return out << "null";
 }
 
