@@ -102,10 +102,20 @@ struct Value {
   }
 
   template <typename Type>
-  Type& as();
+  Type& as() {
+    return as_impl<typename std::remove_cv<typename std::remove_reference<Type>::type>::type>();
+  }
 
   template <typename Type>
-  const Type& as() const;
+  Type& as_impl();
+
+  template <typename Type>
+  const Type& as() const {
+    return as_impl<typename std::remove_cv<typename std::remove_reference<Type>::type>::type>();
+  }
+
+  template <typename Type>
+  const Type& as_impl() const;
 
   template <typename Type>
   bool is() const;
@@ -399,96 +409,96 @@ inline bool Value::is<Null>() const {
 }
 
 template <>
-inline Object& Value::as<Object>() {
+inline Object& Value::as_impl<Object>() {
   if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-inline const Object& Value::as<Object>() const {
+inline const Object& Value::as_impl<Object>() const {
   if (!is<Object>())
     throw TypeException("Object type assertion failed");
   return *ptr.object;
 }
 
 template <>
-inline const Object& Value::as<const Object&>() const {
-  if (!is<Object>())
-    throw TypeException("Object type assertion failed");
-  return *ptr.object;
-}
-
-template <>
-inline Array& Value::as<Array>() {
+inline Array& Value::as_impl<Array>() {
   if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-inline const Array& Value::as<Array>() const {
+inline const Array& Value::as_impl<Array>() const {
   if (!is<Array>())
     throw TypeException("Array type assertion failed");
   return *ptr.array;
 }
 
 template <>
-inline String& Value::as<String>() {
+inline String& Value::as_impl<String>() {
   if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-inline const String& Value::as<String>() const {
+inline const String& Value::as_impl<String>() const {
   if (!is<String>())
     throw TypeException("String type assertion failed");
   return *ptr.string;
 }
 
 template <>
-inline Number& Value::as<Number>() {
+inline Number& Value::as_impl<Number>() {
   if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-inline const Number& Value::as<Number>() const {
+inline const Number& Value::as_impl<Number>() const {
   if (!is<Number>())
     throw TypeException("Number type assertion failed");
   return *ptr.number;
 }
 
 template <>
-inline Bool& Value::as<Bool>() {
+inline Bool& Value::as_impl<Bool>() {
   if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
-inline const Bool& Value::as<Bool>() const {
+inline const Bool& Value::as_impl<Bool>() const {
   if (!is<Bool>())
     throw TypeException("Bool type assertion failed");
   return *ptr.boolean;
 }
 
 template <>
-inline const Null& Value::as<const Null&>() const {
+inline Null& Value::as_impl<Null>() {
   if (!is<Null>())
     throw TypeException("Null type assertion failed");
   return *ptr.null;
 }
 
 template <>
-inline Value& Value::as<Value>() {
+inline const Null& Value::as_impl<Null>() const {
+  if (!is<Null>())
+    throw TypeException("Null type assertion failed");
+  return *ptr.null;
+}
+
+template <>
+inline Value& Value::as_impl<Value>() {
   return *this;
 }
 
 template <>
-inline const Value& Value::as<Value>() const {
+inline const Value& Value::as_impl<Value>() const {
   return *this;
 }
 
