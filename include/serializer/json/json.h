@@ -3,6 +3,8 @@
 #include <serializer/core.h>
 #include <iterator>
 #include <ostream>
+#include <iomanip>
+#include <limits>
 
 namespace json {
 
@@ -219,6 +221,18 @@ struct formatter<U, json::InStream> {
   static auto format(Stream& out, T& t) -> typename std::enable_if<!has_format_override<T, Stream>::value, bool>::type {
     format_impl(out, t);
     return out;
+  }
+};
+
+template <>
+struct format_override<double, json::OutStream> {
+  template <typename Stream>
+  static void format(Stream& out, double val) {
+    // format as an integer if there is no decimal part
+    if (val == (int64_t) val)
+      out << std::fixed << (int64_t) val;
+    else
+      out << std::setprecision(std::numeric_limits<double>::digits10) << val;
   }
 };
 
