@@ -1,11 +1,9 @@
 #include <iostream>
 #include <string>
 #include <map>
-#include <cassert>
 
 #include <serializer/string_escaper.h>
 #include <uber_test.hpp>
-#include <ostream_reporter.hpp>
 
 using namespace ut;
 
