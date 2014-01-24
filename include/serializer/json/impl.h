@@ -507,11 +507,11 @@ struct Key {
   Key() {}
   Key(const std::string& str_)
     : str(str_), isString(true) {}
-  Key(int idx_)
+  Key(std::size_t idx_)
     : idx(idx_), isString(false) {}
 
   std::string str;
-  int idx = 0;
+  std::size_t idx = 0;
   bool isString = false;
 };
 
