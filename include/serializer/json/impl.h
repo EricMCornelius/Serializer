@@ -684,6 +684,12 @@ struct SetterResult {
     return SetterResult(std::move(cpy), _value);
   }
 
+  SetterResult operator[](const std::string& key) const {
+    KeyList cpy(_keys);
+    cpy.emplace_back(key);
+    return SetterResult(std::move(cpy), _value);
+  }
+
   SetterResult operator[](int idx) const {
     KeyList cpy(_keys);
     cpy.emplace_back(idx);
