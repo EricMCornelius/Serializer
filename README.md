@@ -7,3 +7,9 @@
     posh build
     
     ./tests/json/bin/JsonTest.tsk
+
+
+========
+License
+
+http://opensource.org/licenses/MIT
