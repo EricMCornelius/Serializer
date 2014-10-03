@@ -1,6 +1,4 @@
 #include <uber_test.hpp>
-#include <ostream_reporter.hpp>
-#include <assertions.hpp>
 
 #include <fstream>
 
@@ -25,6 +23,7 @@ std::string get_file_contents(const std::string& filename)
     in.close();
     return std::move(contents);
   }
+  return "";
 }
 
 describe(suite)
@@ -254,7 +253,7 @@ describe(suite)
   });
 
   it("should fail to parse a json string", [] {
-    constexpr char* input = R"(
+    constexpr const char* input = R"(
       {"Hello",: [1,2,3],
        "World": [4,"'",5,6,0,"test"],
        "...": "..."}
