@@ -2,5 +2,5 @@ register({
   id: 'EscaperTest',
   language: 'c++',
   type: 'test',
-  deps: ['uber_test', 'SerializerCore', 'serializer']
+  deps: ['UberTest', 'SerializerCore', 'Serializer']
 });

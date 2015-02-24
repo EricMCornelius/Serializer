@@ -5,7 +5,7 @@ register({
 });
 
 register({
-  id: 'serializer',
+  id: 'Serializer',
   language: 'c++',
   type: env.lib_type
 });
