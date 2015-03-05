@@ -27,16 +27,94 @@ std::string get_file_contents(const std::string& filename)
 }
 
 describe(suite)
+  it("should parse a string", [] {
+    std::stringstream str;
+    str << "\"test\"";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<String>());
+  });
+
+  it("should parse a number", [] {
+    std::stringstream str;
+    str << "3.14159";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Number>());
+  });
+
+  it("should parse a null", [] {
+    std::stringstream str;
+    str << "null";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Null>());
+  });
+
+  it("should parse false", [] {
+    std::stringstream str;
+    str << "false";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Bool>());
+  });
+
+  it("should parse true", [] {
+    std::stringstream str;
+    str << "true";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Bool>());
+  });
+
+  it("should parse an object", [] {
+    std::stringstream str;
+    str << "{}";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Object>());
+  });
+
+  it("should parse an array", [] {
+    std::stringstream str;
+    str << "[]";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Array>());
+  });
+
+  it("should create an Array", [] {
+    std::stringstream str;
+    str << "[]";
+
+    Value val;
+    str >> val;
+
+    ut_assert(val.is<Array>());
+  });
+
   it("should compare parsed and constructed json objects", []{
     std::stringstream str;
     str << text;
 
-    //json::InStream ssi(text);
-    json::Value fill;
-    //format(ssi, fill);
+    Value fill;
     str >> fill;
 
-    json::Object v = {
+    Object v = {
       {"glossary", {
         {"title", "example glossary"},
         {"GlossDiv", {
@@ -51,7 +129,7 @@ describe(suite)
               {"GlossSee", "markup"},
               {"GlossDef",  {
                 {"para", "A meta-markup language, used to create markup languages such as DocBook."},
-                {"GlossSeeAlso", json::Array{"GML", "XML"}}
+                {"GlossSeeAlso", Array{"GML", "XML"}}
               }},
               {"NullTest", nullptr}
             }
@@ -60,120 +138,120 @@ describe(suite)
       }}
     }};
 
-    ut_assert_eq(fill.as<json::Object>(), v, "Should be equivalent");
+    ut_assert_eq(fill.as<Object>(), v, "Should be equivalent");
 
     v["glossary"]["title"] = 10;
-    ut_assert_neq(fill.as<json::Object>(), v, "Should not be equivalent");
+    ut_assert_neq(fill.as<Object>(), v, "Should not be equivalent");
   });
 
   it("should create a new object", [] {
     auto num = 100;
     auto str = "sample key";
-    json::Value s = {{str, num}};
+    Value s = {{str, num}};
     ut_assert_eq(s["sample key"], 100);
   });
 
   it("should create a new array", [] {
     auto num = 100;
     auto str = "sample key";
-    json::Array s = {str, num};
+    Array s = {str, num};
     ut_assert_eq(s[0], "sample key");
     ut_assert_eq(s[1], num);
   });
 
 
   it("should create a new object and assign an array to the data field", [] {
-    json::Object obj = {
+    Object obj = {
       {"Hello", "World"}
     };
-    obj["data"] = json::Array{1, 2, 3};
+    obj["data"] = Array{1, 2, 3};
     ut_assert_eq(obj["data"][0], 1);
     ut_assert_eq(obj["data"][1], 2);
     ut_assert_eq(obj["data"][2], 3);
   });
 
   it("should throw an exception due to invalid object field access", [] {
-    const json::Value obj = {
+    const Value obj = {
       {"Hello", "World"}
     };
 
-    ut_assert_throws(obj["invalid"].as<Value>(), json::AccessException);
+    ut_assert_throws(obj["invalid"].as<Value>(), AccessException);
   });
 
   it("should throw an exception due to invalid array access", [] {
-    const json::Value obj = {
-      {"data", json::Array{"Hello", "World"}}
+    const Value obj = {
+      {"data", Array{"Hello", "World"}}
     };
 
-    ut_assert_throws(obj["data"][2].as<Value>(), json::AccessException);
+    ut_assert_throws(obj["data"][2].as<Value>(), AccessException);
   });
 
   it("should demonstrate value reference semantics", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
-    json::Value v2 = v;
+    Value v2 = v;
     v2["test"] = "hi";
 
     ut_assert_eq(v, v2);
   });
 
   it("should clone a value", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
-    json::Value v2 = v.clone();
+    Value v2 = v.clone();
     v2["test"] = "hi";
 
     ut_assert_neq(v, v2);
   });
 
   it("should clone a const value", [] {
-    const json::Value v = {
+    const Value v = {
       {"Hello", "World"}
     };
-    json::Value v2 = v.clone();
+    Value v2 = v.clone();
     v2["test"] = "hi";
 
     ut_assert_neq(v, v2);
   });
 
   it("should fail to coerce a number field to a string", [] {
-    json::Value v = {
+    Value v = {
       {"test", 0}
     };
 
-    ut_assert_throws(v["test"].as<json::String>(), json::TypeException);
+    ut_assert_throws(v["test"].as<String>(), TypeException);
   });
 
   it("should fail to coerce a string field to a number", [] {
-    json::Value v = {
+    Value v = {
       {"test", "0"}
     };
 
-    ut_assert_throws(v["test"].as<json::Number>(), json::TypeException);
+    ut_assert_throws(v["test"].as<Number>(), TypeException);
   });
 
   it("should fail to coerce an object field to an array", [] {
-    json::Value v = {
+    Value v = {
       {"nested", {{"test", "0"}}}
     };
 
-    ut_assert_throws(v["nested"].as<json::Array>(), json::TypeException);
+    ut_assert_throws(v["nested"].as<Array>(), TypeException);
   });
 
   it("should fail to coerce an array field to an object", [] {
-    json::Value v = {
-      {"nested", json::Array{"test", "0"}}
+    Value v = {
+      {"nested", Array{"test", "0"}}
     };
 
-    ut_assert_throws(v["nested"].as<json::Object>(), json::TypeException);
+    ut_assert_throws(v["nested"].as<Object>(), TypeException);
   });
 
   it("should return a defaulted string value", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"},
-      {"Data", json::Array{"This","Is","A","Test"}}
+      {"Data", Array{"This","Is","A","Test"}}
     };
 
     ut_assert_eq(v["hello"].defaultTo("Test"), "Test");
@@ -181,7 +259,7 @@ describe(suite)
   });
 
   it("should return a defaulted int value", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
 
@@ -189,11 +267,11 @@ describe(suite)
   });
 
   it("should return a defaulted object value", [] {
-    json::Value v = {
+    Value v = {
       {"test", {{"Hello", "World"}}}
     };
 
-    json::Object t = {
+    Object t = {
       {"default", "implementation"}
     };
 
@@ -202,7 +280,7 @@ describe(suite)
   });
 
   it("should not create nested object via lookup", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
     v["first"]["second"];
@@ -211,7 +289,7 @@ describe(suite)
   });
 
   it("should create a nested object via assignment", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
     v["first"]["second"] = {{"Hello", "World"}};
@@ -220,7 +298,7 @@ describe(suite)
   });
 
   it("should create a nested array via assignment", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
     v["first"]["second"][2] = {{"Hello", "World"}};
@@ -229,27 +307,27 @@ describe(suite)
   });
 
   it("should default to 1", [] {
-    json::Value v = {
+    Value v = {
       {"Hello", "World"}
     };
 
     ut_assert_eq(v["Hello"]["test"].defaultTo(1), 1);
   });
 
-  it("should successful retrieve a json::String field", [] {
-    json::Value v = {
+  it("should successful retrieve a String field", [] {
+    Value v = {
       {"example", {{"test", "message"}}}
     };
 
     ut_assert_eq(v["example"]["test"].as<String>(), "message");
   });
 
-  it("should fail to retrieve a json::String field", [] {
-    json::Value v = {
+  it("should fail to retrieve a String field", [] {
+    Value v = {
       {"example", {{"test", 1}}}
     };
 
-    ut_assert_throws(v["example"]["test"].as<String>(), json::TypeException);
+    ut_assert_throws(v["example"]["test"].as<String>(), TypeException);
   });
 
   it("should fail to parse a json string", [] {
@@ -259,19 +337,19 @@ describe(suite)
        "...": "..."}
     )";
 
-    json::Value v;
+    Value v;
     auto res = v.parse(input);
 
     ut_assert_eq(res, false);
-    ut_assert(v.is<json::Null>());
+    ut_assert(v.is<Null>());
   });
 
   /*
   it("should parse a very large json object", []{
     for (std::size_t i = 0; i < 10; ++i) {
       const auto& str = get_file_contents("stress.json");
-      json::InStream ssi(str);
-      json::Value fill;
+      InStream ssi(str);
+      Value fill;
       format(ssi, fill);
     }
 

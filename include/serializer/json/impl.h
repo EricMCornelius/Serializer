@@ -998,8 +998,9 @@ template <>
 struct format_override<json::Null, json::InStream> {
   template <typename Stream>
   static void format(Stream& in, json::Null& obj) {
+    constexpr json::LiteralWrapper null = "null";
     in.good();
-    in >> "null";
+    in >> null;
   }
 };
 
@@ -1018,15 +1019,18 @@ template <>
 struct format_override<json::Bool, json::InStream> {
   template <typename Stream>
   static void format(Stream& in, json::Bool& obj) {
+    constexpr json::LiteralWrapper true_ = "true";
+    constexpr json::LiteralWrapper false_ = "false";
+
     in.good();
-    in >> "true";
+    in >> true_;
     if (in) {
       obj = true;
       return;
     }
 
     in.good();
-    in >> "false";
+    in >> false_;
     if (in) {
       obj = false;
       return;

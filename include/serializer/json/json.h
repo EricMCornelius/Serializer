@@ -4,9 +4,19 @@
 #include <iterator>
 #include <ostream>
 #include <iomanip>
+#include <istream>
 #include <limits>
 
 namespace json {
+
+struct LiteralWrapper {
+  template <std::size_t size_>
+  constexpr LiteralWrapper(const char (&str_)[size_])
+    : str(str_), size(size_ - 1) { }
+
+  const char* str;
+  std::size_t size;
+};
 
 struct OutStream {
   OutStream() : buffer(std::cout) { }
@@ -25,8 +35,26 @@ struct InStream {
   std::istringstream input_stream;
   std::istream& buffer;
 
-  operator bool() { return buffer; }
+  operator bool() { return static_cast<bool>(buffer); }
   void good() { buffer.clear(); }
+  void bad() { buffer.setstate(std::ios_base::badbit); }
+
+  template <typename T>
+  InStream& trim(T&& obj) {
+    buffer >> std::ws;
+    *this >> obj;
+    buffer >> std::ws;
+    return *this;
+  }
+
+  std::string remaining() {
+    auto pos = buffer.tellg();
+    std::stringstream str;
+    str << buffer.rdbuf();
+    buffer.good();
+    buffer.seekg(pos, buffer.beg);
+    return str.str();
+  }
 
   InStream(const std::string& contents) : input_stream(contents), buffer(input_stream) { }
   InStream(std::istream& input) : buffer(input) {}
@@ -34,43 +62,86 @@ struct InStream {
 
 template <typename T>
 InStream& operator >> (InStream& in, T& obj) {
+  auto pos = in.buffer.tellg();
   in.buffer >> obj;
+  if (!in) {
+    in.good();
+    in.buffer.seekg(pos);
+    in.bad();
+  }
   return in;
 }
 
 inline InStream& operator >> (InStream& in, std::string& obj) {
-  char c;
   bool escape = false;
-  while(in.buffer >> std::noskipws >> c) {
+  char c = in.buffer.get();
+  while (in) {
     if (!escape && c == '"') {
       in.buffer.putback(c);
       break;
     }
     obj += c;
     escape = (c == '\\' && !escape);
+    c = in.buffer.get();
   }
-  in.buffer >> std::skipws;
   return in;
 }
 
 inline InStream& operator >> (InStream& in, const char* str) {
-  std::size_t len = std::strlen(str);
-  std::size_t count = 0;
-  char c;
+  char buf[4096];
 
-  auto pos = in.buffer.tellg();
+  auto len = std::strlen(str);
+  auto count = in.buffer.readsome(&buf[0], len);
 
-  while(count < len && in.buffer >> c) {
-    if (std::isspace(c))
-      continue;
+  buf[count] = '\0';
 
-    if (c != str[count])
-      break;
-    ++count;
-  }
   if (count != len) {
-    in.buffer.seekg(pos);
-    in.buffer.setstate(std::ios_base::badbit);
+    for (auto c = count - 1; c >= 0; --c)
+      in.buffer.putback(buf[c]);
+    in.bad();
+    return in;
+  }
+
+  for (auto idx = 0u; idx < count; ++idx) {
+    if (buf[idx] != str[idx]) {
+      for (auto c = count - 1; c >= 0; --c)
+        in.buffer.putback(buf[c]);
+      in.bad();
+      return in;
+    }
+  }
+
+  return in;
+}
+
+inline InStream& operator >> (InStream& in, char c) {
+  auto n = in.buffer.get();
+  if (n == c) {
+    return in;
+  }
+  in.buffer.putback(n);
+  in.bad();
+  return in;
+}
+
+inline InStream& operator >> (InStream& in, const LiteralWrapper& lit) {
+  char buf[4096];
+  auto count = in.buffer.readsome(&buf[0], lit.size);
+
+  if (count != lit.size) {
+    for (auto c = count - 1; c >= 0; --c)
+      in.buffer.putback(buf[c]);
+    in.bad();
+    return in;
+  }
+
+  for (auto idx = 0u; idx < count; ++idx) {
+    if (buf[idx] != lit.str[idx]) {
+      for (auto c = count - 1; c >= 0; --c)
+        in.buffer.putback(buf[c]);
+      in.bad();
+      return in;
+    }
   }
 
   return in;
@@ -141,7 +212,7 @@ struct formatter<U, json::InStream> {
     typedef typename has_range<T>::value_type value_type;
     auto itr = std::inserter(t, t.begin());
 
-    if (!(out >> "["))
+    if (!(out.trim('[')))
       return false;
 
     do {
@@ -149,10 +220,10 @@ struct formatter<U, json::InStream> {
       if (format(out, obj))
         *itr = obj;
     }
-    while(out >> ",");
+    while(out.trim(','));
 
     out.good();
-    out >> "]";
+    out.trim(']');
     return out;
   }
 
@@ -163,14 +234,14 @@ struct formatter<U, json::InStream> {
     typedef typename has_key<T>::value_type value_type;
     auto itr = std::inserter(t, t.begin());
 
-    if (!(out >> "{"))
+    if (!(out.trim('{')))
       return false;
 
     do {
       key_type key;
       mapped_type value;
       format(out, key);
-      out >> ":";
+      out.trim(':');
       format(out, value);
 
       if (!out)
@@ -178,10 +249,10 @@ struct formatter<U, json::InStream> {
 
       *itr = value_type(key, value);
     }
-    while(out >> ",");
+    while(out.trim(','));
 
     out.good();
-    out >> "}";
+    out.trim('}');
     return out;
   }
 
@@ -190,7 +261,7 @@ struct formatter<U, json::InStream> {
     typedef typename has_key<T>::value_type value_type;
     auto itr = std::inserter(t, t.begin());
 
-    if (!(out >> "{"))
+    if (!(out.trim('{')))
       return false;
 
     do {
@@ -198,10 +269,10 @@ struct formatter<U, json::InStream> {
       if (format(out, obj))
         *itr = obj;
     }
-    while(out >> ",");
+    while(out.trim(','));
 
     out.good();
-    out >> "}";
+    out.trim('}');
     return out;
   }
 
@@ -248,6 +319,6 @@ template <>
 struct format_override<std::string, json::InStream> {
   template <typename Stream>
   static void format(Stream& out, std::string& obj) {
-    out >> "\"" >> obj >> "\"";
+    out >> '"' >> obj >> '"';
   }
 };
