@@ -26,7 +26,7 @@ std::string get_file_contents(const std::string& filename)
   return "";
 }
 
-describe(suite)
+suite(json_tests)
   it("should parse a string", [] {
     std::stringstream str;
     str << "\"test\"";

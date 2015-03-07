@@ -7,7 +7,7 @@
 
 using namespace ut;
 
-describe(suite)
+suite(escape_tests)
   const std::map<std::string, std::string> cases = {
     { "Hello World", "Hello World" },
     { "{\"Goodbye\":\"World\"}", "{\\\"Goodbye\\\":\\\"World\\\"}" }
